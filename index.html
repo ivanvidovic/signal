@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signal Broadcasting Co. — Record Coaster Stand</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-logo">
+    <img src="./images/Signal_Broadcasting_Co.svg" alt="Signal Broadcasting Co.">
+  </div>
+  <div class="header-tagline">Record Coaster Stand — Configurator</div>
+  
+  <button class="theme-toggle" id="themeBtn" aria-label="Toggle Dark Mode">
+    <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+  </button>
+</header>
+
+<main>
+  <div id="viewport">
+    <div id="loading">
+      <div id="load-progress">0%</div>
+      <div class="loader-ring"></div>
+      <div class="loader-label">Loading model</div>
+    </div>
+    <div id="canvas-container"></div>
+    <div class="viewport-hint">
+      <span>Drag to rotate</span>
+      <span class="hint-sep">·</span>
+      <span>Scroll to zoom</span>
+      <span class="hint-sep">·</span>
+      <span>Right-drag to pan</span>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="panel-section">
+      <div class="panel-label">Color Zones</div>
+      <div class="zone-list">
+
+        <div class="zone-row">
+          <div class="zone-swatch" id="swatch-Yellow" style="background:#F5B82E;">
+            <input type="color" id="color-Yellow" value="#F5B82E" oninput="setColor('Yellow',this.value)">
+          </div>
+          <div class="zone-info">
+            <div class="zone-name">Body</div>
+            <div class="zone-material">Main body</div>
+          </div>
+          <div class="zone-hex" id="hex-Yellow">#F5B82E</div>
+        </div>
+
+        <div class="zone-row">
+          <div class="zone-swatch" id="swatch-Blue" style="background:#0F6FD7;">
+            <input type="color" id="color-Blue" value="#0F6FD7" oninput="setColor('Blue',this.value)">
+          </div>
+          <div class="zone-info">
+            <div class="zone-name">Panel</div>
+            <div class="zone-material">Side panel</div>
+          </div>
+          <div class="zone-hex" id="hex-Blue">#0F6FD7</div>
+        </div>
+
+        <div class="zone-row">
+          <div class="zone-swatch" id="swatch-Pin_Mount" style="background:#1a1a1a;">
+            <input type="color" id="color-Pin_Mount" value="#1a1a1a" oninput="setColor('Pin_Mount',this.value)">
+          </div>
+          <div class="zone-info">
+            <div class="zone-name">Pin Mount</div>
+            <div class="zone-material">Spindle housing</div>
+          </div>
+          <div class="zone-hex" id="hex-Pin_Mount">#1A1A1A</div>
+        </div>
+
+        <div class="zone-row">
+          <div class="zone-swatch" id="swatch-Feet" style="background:#1a1a1a;">
+            <input type="color" id="color-Feet" value="#1a1a1a" oninput="setColor('Feet',this.value)">
+          </div>
+          <div class="zone-info">
+            <div class="zone-name">Feet</div>
+            <div class="zone-material">Rubber feet × 4</div>
+          </div>
+          <div class="zone-hex" id="hex-Feet">#1A1A1A</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-label">Palettes</div>
+      <div class="preset-grid">
+
+        <button class="preset-btn active" onclick="applyPreset('signal')" id="preset-signal">
+          <div class="preset-dots">
+            <div class="preset-dot" style="background:#F5B82E;"></div>
+            <div class="preset-dot" style="background:#0F6FD7;"></div>
+            <div class="preset-dot" style="background:#1a1a1a;"></div>
+          </div>
+          <span class="preset-name">Signal</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('bauhaus')" id="preset-bauhaus">
+          <div class="preset-dots">
+            <div class="preset-dot" style="background:#D93636;"></div>
+            <div class="preset-dot" style="background:#1a1a1a;"></div>
+            <div class="preset-dot" style="background:#F5B82E;"></div>
+          </div>
+          <span class="preset-name">Bauhaus</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('dessau')" id="preset-dessau">
+          <div class="preset-dots">
+            <div class="preset-dot" style="background:#E4DCCF;"></div>
+            <div class="preset-dot" style="background:#003882;"></div>
+            <div class="preset-dot" style="background:#1C1C1C;"></div>
+          </div>
+          <span class="preset-name">Dessau</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('forest')" id="preset-forest">
+          <div class="preset-dots">
+            <div class="preset-dot" style="background:#4a7c59;"></div>
+            <div class="preset-dot" style="background:#e8dcc8;"></div>
+            <div class="preset-dot" style="background:#1e1e1e;"></div>
+          </div>
+          <span class="preset-name">Forest</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('cream')" id="preset-cream">
+          <div class="preset-dots">
+            <div class="preset-dot" style="background:#f5e6c8;"></div>
+            <div class="preset-dot" style="background:#8b4513;"></div>
+            <div class="preset-dot" style="background:#2d1b0e;"></div>
+          </div>
+          <span class="preset-name">Cream</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('chrome')" id="preset-chrome">
+          <div class="preset-dots">
+            <div class="preset-dot" style="background:#c8c8c8;"></div>
+            <div class="preset-dot" style="background:#D93636;"></div>
+            <div class="preset-dot" style="background:#111;"></div>
+          </div>
+          <span class="preset-name">Chrome</span>
+        </button>
+
+      </div>
+    </div>
+
+    <div class="panel-section" style="display: flex; flex-direction: column; gap: 8px;">
+      <button class="reset-btn" onclick="resetDefaults()">↺ &nbsp;Reset to Default</button>
+      <button class="reset-btn" onclick="shareConfig()">🔗 &nbsp;Share Config</button>
+    </div>
+
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
