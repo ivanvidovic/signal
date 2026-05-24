@@ -370,7 +370,7 @@ const LIGHTING_CONFIG = {
     position:  { x: 0, y: 4, z: -4 },
   },
   shadow: {
-    opacity: 0.3,
+    opacity: 0.4,
     planeY:  0.0,
   },
 };
@@ -749,11 +749,11 @@ let stackCount   = 4;
 let isFlipped     = false;
 let isAnimating   = false;
 
-// \u2500\u2500\u2500 SPIN STATE \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r
+// ─── SPIN STATE  ─────────────────────────────────────────────────────────────
 // RPM values: 33.333, 45, 78 \u2192 radians per frame at 60fps
 // 0 = stopped
 let spinRPM = 0;
-const RPM_TO_RAD_PER_FRAME = (2 * Math.PI) / 60; // 1 RPM at 60fps
+const RPM_TO_RAD_PER_FRAME = ((2 * Math.PI) / 60) * 0.02; // 1 RPM at 60fps
 
 window.setSpin = function(rpm) {
   spinRPM = rpm;
