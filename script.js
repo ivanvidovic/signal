@@ -752,17 +752,178 @@ window.setSpin = function(rpm) {
   document.querySelectorAll('.rpm-chip').forEach(btn => {
     btn.classList.toggle('active', parseFloat(btn.dataset.rpm) === rpm);
   });
+  syncAudio();
 };
 
 function updateSpinUI() {
-  const row = document.getElementById('rpm-row');
-  if (!row) return;
+  const rpmRow = document.getElementById('rpm-row');
+  const volRow = document.getElementById('volume-row');
   const active = stackCount === 1;
-  row.style.opacity       = active ? '1' : '0.35';
-  row.style.pointerEvents = active ? '' : 'none';
+  if (rpmRow) {
+    rpmRow.style.opacity       = active ? '1' : '0.35';
+    rpmRow.style.pointerEvents = active ? '' : 'none';
+  }
+  if (volRow) {
+    volRow.style.opacity       = active ? '1' : '0.35';
+    volRow.style.pointerEvents = active ? '' : 'none';
+  }
   // Always reset to OFF when not active so the OFF chip stays highlighted
   if (!active) window.setSpin(0);
 }
+
+// ─── AUDIO SYSTEM ────────────────────────────────────────────────────────────
+// Plays per-theme, per-side ambient tracks when qty=1 and RPM > 0.
+// Playback rate shifts in real time with RPM selection.
+// 33⅓ is the reference speed (1.0x). 45 and 78 scale proportionally.
+// Theme switches and side flips crossfade over CROSSFADE_MS milliseconds.
+
+const CROSSFADE_MS    = 800;
+const BASE_RPM        = 33.333;
+const AUDIO_BASE_PATH = './audio/';
+
+// Track the active theme name so audio knows what to play
+let activeThemeName = 'signal';
+
+// Current audio state
+let audioCtx        = null;
+let currentSource   = null;  // AudioBufferSourceNode currently playing
+let currentGain     = null;  // GainNode for current source
+let masterGain      = null;  // Master volume GainNode
+let audioVolume     = 0.8;
+let restartTimer    = null;  // setTimeout handle for the 3s pause before replay
+
+// Cache loaded AudioBuffers so we don't re-fetch on every spin/flip
+const audioCache = {};
+
+function getAudioCtx() {
+  if (!audioCtx) {
+    audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = audioVolume;
+    masterGain.connect(audioCtx.destination);
+  }
+  return audioCtx;
+}
+
+function trackKey(theme, side) {
+  return `${theme}-${side}`;
+}
+
+function trackUrl(theme, side) {
+  return `${AUDIO_BASE_PATH}${theme}-${side}.mp3`;
+}
+
+async function loadTrack(theme, side) {
+  const key = trackKey(theme, side);
+  if (audioCache[key]) return audioCache[key];
+  try {
+    const ctx  = getAudioCtx();
+    const resp = await fetch(trackUrl(theme, side));
+    if (!resp.ok) return null;
+    const arr  = await resp.arrayBuffer();
+    const buf  = await ctx.decodeAudioData(arr);
+    audioCache[key] = buf;
+    return buf;
+  } catch (e) {
+    return null;
+  }
+}
+
+function rpmToPlaybackRate(rpm) {
+  if (!rpm || rpm === 0) return 1.0;
+  return rpm / BASE_RPM;
+}
+
+// Fade out the current source over CROSSFADE_MS, then stop it
+function fadeOutCurrent() {
+  // Cancel any pending restart so a ghost track doesn't fire during the pause
+  if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
+  if (!currentSource || !currentGain) return;
+  const ctx  = getAudioCtx();
+  const now  = ctx.currentTime;
+  const fade = CROSSFADE_MS / 1000;
+  currentGain.gain.cancelScheduledValues(now);
+  currentGain.gain.setValueAtTime(currentGain.gain.value, now);
+  currentGain.gain.linearRampToValueAtTime(0, now + fade);
+  const src = currentSource;
+  setTimeout(() => { try { src.stop(); } catch(e) {} }, CROSSFADE_MS + 50);
+  currentSource = null;
+  currentGain   = null;
+}
+
+// Start a new source, fading in over CROSSFADE_MS
+async function fadeInTrack(theme, side, rpm) {
+  const ctx = getAudioCtx();
+  if (ctx.state === 'suspended') await ctx.resume();
+
+  const buf = await loadTrack(theme, side);
+  if (!buf) return; // no file for this theme/side — silent
+
+  const gain  = ctx.createGain();
+  const now   = ctx.currentTime;
+  const fade  = CROSSFADE_MS / 1000;
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(1.0, now + fade);
+  gain.connect(masterGain);
+
+  const src         = ctx.createBufferSource();
+  src.buffer        = buf;
+  src.loop          = false;
+  src.playbackRate.value = rpmToPlaybackRate(rpm);
+  src.connect(gain);
+  src.start(0);
+
+  // When the track ends, wait 3 seconds then restart from the beginning
+  src.onended = () => {
+    // Only restart if this source is still the active one (not interrupted)
+    if (currentSource !== src) return;
+    currentSource = null;
+    currentGain   = null;
+    restartTimer  = setTimeout(() => {
+      restartTimer = null;
+      // Re-check conditions — user may have stopped or changed things during pause
+      if (stackCount === 1 && spinRPM !== 0) {
+        syncAudio();
+      }
+    }, 3000);
+  };
+
+  currentSource = src;
+  currentGain   = gain;
+}
+
+// Main entry point — call whenever spin state, theme, or side changes
+async function syncAudio() {
+  const shouldPlay = (stackCount === 1 && spinRPM !== 0);
+
+  if (!shouldPlay) {
+    fadeOutCurrent();
+    return;
+  }
+
+  const side = isFlipped ? 'b' : 'a';
+
+  // If already playing the right track, just update playback rate
+  if (currentSource) {
+    const wantedKey = trackKey(activeThemeName, side);
+    const playingKey = currentSource._trackKey;
+    if (playingKey === wantedKey) {
+      currentSource.playbackRate.value = rpmToPlaybackRate(spinRPM);
+      return;
+    }
+  }
+
+  // Otherwise crossfade to new track
+  fadeOutCurrent();
+  await fadeInTrack(activeThemeName, side, spinRPM);
+  if (currentSource) currentSource._trackKey = trackKey(activeThemeName, side);
+}
+
+function setVolume(val) {
+  audioVolume = parseFloat(val);
+  if (masterGain) masterGain.gain.value = audioVolume;
+}
+window.setVolume = setVolume;
 
 // ─── COLOR HELPERS ───────────────────────────────────────────────────────────
 function hexToC(hex) {
@@ -1013,7 +1174,8 @@ window.flipTopCoaster = function() {
   if (stackCount === 0 || coasterStack.length === 0) return;
 
   isAnimating = true;
-  if (spinRPM !== 0) window.setSpin(0); // stop spin during flip
+  const rpmBeforeFlip = spinRPM;       // save so we can restore after
+  if (spinRPM !== 0) window.setSpin(0); // stop spin during flip animation
   updateFlipToggleUI();
 
   const coaster = coasterStack[coasterStack.length - 1];
@@ -1067,6 +1229,10 @@ window.flipTopCoaster = function() {
       isAnimating = false;
       flipAnimId  = null;
       updateFlipToggleUI();
+      // Restore the RPM that was active before the flip, then let syncAudio
+      // pick up the new side's track at the same speed
+      if (rpmBeforeFlip !== 0) window.setSpin(rpmBeforeFlip);
+      else syncAudio();
     }
   }
 
@@ -1166,6 +1332,8 @@ window.applyPreset = function(name) {
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   const btn = document.getElementById('preset-' + name);
   if (btn) btn.classList.add('active');
+  activeThemeName = name;
+  syncAudio();
 };
 
 // ─── RANDOMIZE ───────────────────────────────────────────────────────────────
