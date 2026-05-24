@@ -534,7 +534,7 @@ cvs.addEventListener('contextmenu', e => e.preventDefault());
 const MATERIAL_PROPS = {
   // ── Coaster ──────────────────────────────────────────────────────────────
   // normalScale: strength of the radial groove normal map (0 = flat, 2 = very deep)
-  Record:    { roughness: 0.0, metalness: 0.0,  normalScale: 1.5 },
+  Record:    { roughness: 0.0, metalness: 0.5,  normalScale: 2.0 },
   Red:       { roughness: 0.5, metalness: 0.0  },
   Blue:      { roughness: 0.5, metalness: 0.0  },
 
