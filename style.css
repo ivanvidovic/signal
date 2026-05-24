@@ -1,5 +1,4 @@
 :root {
-  /* Light Theme Variables */
   --blue:   #0F6FD7;
   --cream:  #E8DDD0;
   --red:    #D93636;
@@ -10,7 +9,7 @@
   --ink:    #1a1a1a;
   --muted:  #7a7060;
   --border: #D8D0C4;
-  --header-bg: #0A0A0A;
+  --header-bg: #F7F3EE;
   
   --btn-hover: #e4dcd2;
   --btn-active-bg: #e8f0fc;
@@ -20,19 +19,23 @@
 }
 
 body.dark-mode {
-  /* Dark Theme Variables */
   --bg:     #272727;
   --panel:  #1A1A1A;
   --ink:    #E0E0E0;
   --muted:  #888888;
   --border: #333333;
-  --header-bg: #000000;
+  --header-bg: #1A1A1A;
   
   --btn-hover: #2a2a2a;
   --btn-active-bg: #1f2937;
   --shadow: rgba(0,0,0,0.4);
   --dot-pattern: rgba(255,255,255,0.5);
   --hint-ink: rgba(255,255,255,0.25);
+}
+
+body.dark-mode .header-logo img {
+  filter: invert(1);
+  opacity: 0.92;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -45,7 +48,7 @@ body {
   height: 100vh;
   width: 100vw;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   transition: background-color 0.5s ease, color 0.5s ease;
 }
 
@@ -60,33 +63,33 @@ body::before {
   transition: background-image 0.5s ease;
 }
 
-/* ── HEADER ── */
 header {
   position: relative;
   z-index: 10;
   display: flex;
   align-items: center;
+  justify-content: center;
   height: 80px;
   background: var(--header-bg);
   flex-shrink: 0;
   padding: 0 24px;
-  gap: 0;
-  transition: background-color 0.5s ease;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.5s ease, border-color 0.5s ease;
 }
 
 .header-logo {
   display: flex;
   align-items: center;
-  border-right: 1px solid rgba(255,255,255,0.1);
-  padding-right: 24px;
+  justify-content: center;
   height: 100%;
 }
 
 .header-logo img {
-  height: 65px;
+  height: 55px;
   width: auto;
-  filter: invert(1);
-  opacity: 0.92;
+  filter: invert(0);
+  opacity: 0.9;
+  transition: filter 0.5s ease, opacity 0.5s ease;
 }
 
 .header-tagline {
@@ -117,26 +120,18 @@ header {
   border-color: rgba(255,255,255,0.4);
 }
 
-/* ── MAIN ── */
-main {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  position: relative;
-  z-index: 1;
-}
-
-/* ── VIEWPORT ── */
 #viewport {
   flex: 1;
   position: relative;
   cursor: grab;
+  overflow: hidden;
+  height: 100vh;
 }
+
 #viewport:active { cursor: grabbing; }
 #canvas-container { width: 100%; height: 100%; }
 canvas { width:100%!important; height:100%!important; display:block; }
 
-/* ── LOADING ── */
 #loading {
   position: absolute;
   inset: 0;
@@ -176,7 +171,6 @@ canvas { width:100%!important; height:100%!important; display:block; }
   transition: color 0.5s ease;
 }
 
-/* ── VIEWPORT HINT ── */
 .viewport-hint {
   position: absolute;
   bottom: 18px;
@@ -196,13 +190,23 @@ canvas { width:100%!important; height:100%!important; display:block; }
 }
 .hint-sep { opacity: 0.4; }
 
-/* ── SIDEBAR ── */
+#left-column {
+  width: 288px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  z-index: 10;
+  transition: border-color 0.5s ease;
+}
+
 #sidebar {
   width: 288px;
-  border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  flex: 1;
   flex-shrink: 0;
   background: var(--panel);
   transition: background-color 0.5s ease, border-color 0.5s ease;
@@ -236,7 +240,6 @@ canvas { width:100%!important; height:100%!important; display:block; }
   transition: background-color 0.5s ease;
 }
 
-/* ── ZONE ROWS ── */
 .zone-list { display:flex; flex-direction:column; gap:8px; }
 
 .zone-row {
@@ -291,7 +294,36 @@ canvas { width:100%!important; height:100%!important; display:block; }
   transition: color 0.5s ease;
 }
 
-/* ── PRESETS ── */
+/* Custom Range Slider */
+input[type=range] {
+  -webkit-appearance: none;
+  background: transparent;
+  outline: none;
+}
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  transition: background 0.5s ease;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: var(--ink);
+  margin-top: -6px;
+  cursor: pointer;
+  transition: background 0.5s ease, transform 0.1s;
+}
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+body.dark-mode input[type=range]::-webkit-slider-thumb {
+  background: var(--ink);
+}
+
 .preset-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -332,7 +364,6 @@ canvas { width:100%!important; height:100%!important; display:block; }
   transition: color 0.5s ease;
 }
 
-/* ── RESET ── */
 .reset-btn {
   width:100%; padding:10px;
   background: transparent;
@@ -347,3 +378,207 @@ canvas { width:100%!important; height:100%!important; display:block; }
   transition: all 0.2s ease;
 }
 .reset-btn:hover { border-color:var(--muted); color:var(--ink); background:var(--bg); }
+/* ─── QUANTITY CHIPS & FLIP TOGGLE ─────────────────────────────────────────── */
+
+.stack-controls-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px 9px;
+}
+
+.stack-control-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stack-control-group .zone-material {
+  width: 24px;
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+/* Quantity chips */
+.qty-chips {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.qty-chip {
+  flex: 1;
+  padding: 6px 2px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.qty-chip:hover {
+  border-color: var(--muted);
+  color: var(--ink);
+  background: var(--btn-hover);
+}
+
+.qty-chip.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Flip toggle */
+.flip-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0;
+  padding: 6px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.flip-toggle:hover:not(:disabled) {
+  border-color: var(--muted);
+}
+
+.flip-toggle:disabled,
+.flip-toggle[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.flip-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  transition: color 0.25s ease, font-weight 0.25s ease;
+  position: relative;
+  z-index: 1;
+}
+
+/* Sliding active indicator pill */
+.flip-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  width: 46%;
+  border-radius: 3px;
+  background: var(--blue);
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  left: 4px;
+}
+
+/* Side A active (default) */
+.flip-toggle:not(.flipped) .side-a {
+  color: #fff;
+  font-weight: 700;
+}
+.flip-toggle:not(.flipped) .side-b {
+  color: var(--muted);
+}
+.flip-toggle:not(.flipped) .flip-indicator {
+  left: 4px;
+}
+
+/* Side B active */
+.flip-toggle.flipped .side-b {
+  color: #fff;
+  font-weight: 700;
+}
+.flip-toggle.flipped .side-a {
+  color: var(--muted);
+}
+.flip-toggle.flipped .flip-indicator {
+  left: calc(54% - 4px);
+}
+
+/* Subtle pulse while animating */
+.flip-toggle.animating {
+  animation: flip-pulse 0.4s ease infinite alternate;
+}
+@keyframes flip-pulse {
+  from { border-color: var(--border); }
+  to   { border-color: var(--blue); }
+}
+/* Theme toggle in sidebar context */
+.sidebar-theme-toggle {
+  width: 100%;
+  border-color: var(--border);
+  color: var(--muted);
+  padding: 10px;
+  border-radius: 6px;
+  gap: 8px;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.sidebar-theme-toggle:hover {
+  background: var(--btn-hover);
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.theme-toggle-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+/* ─── LABEL IMAGE UPLOAD ──────────────────────────────────────────────────── */
+.label-upload-btn,
+.label-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.label-upload-btn:hover,
+.label-clear-btn:hover {
+  border-color: var(--muted);
+  color: var(--ink);
+  background: var(--btn-hover);
+}
+
+.label-clear-btn:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.label-upload-btn input[type="file"] {
+  display: none;
+}
+/* ─── RPM CHIPS ──────────────────────────────────────────────────────────────
+   Inherit all qty-chip base styles; override active color to amber so
+   spinning state is visually distinct from the quantity selection. */
+.rpm-chip.active {
+  background: #C8860A;
+  border-color: #C8860A;
+  color: #fff;
+  font-weight: 700;
+}

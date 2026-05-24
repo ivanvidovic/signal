@@ -10,82 +10,148 @@
 </head>
 <body>
 
-<header>
-  <div class="header-logo">
-    <img src="./images/Signal_Broadcasting_Co.svg" alt="Signal Broadcasting Co.">
-  </div>
-  <div class="header-tagline">Record Coaster Stand — Configurator</div>
-  
-  <button class="theme-toggle" id="themeBtn" aria-label="Toggle Dark Mode">
-    <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-  </button>
-</header>
+<div id="left-column">
 
-<main>
-  <div id="viewport">
-    <div id="loading">
-      <div id="load-progress">0%</div>
-      <div class="loader-ring"></div>
-      <div class="loader-label">Loading model</div>
+  <header>
+    <div class="header-logo">
+      <img src="./images/Signal_Broadcasting_Co.svg" alt="Signal Broadcasting Co.">
     </div>
-    <div id="canvas-container"></div>
-    <div class="viewport-hint">
-      <span>Drag to rotate</span>
-      <span class="hint-sep">·</span>
-      <span>Scroll to zoom</span>
-      <span class="hint-sep">·</span>
-      <span>Right-drag to pan</span>
-    </div>
-  </div>
+  </header>
 
   <div id="sidebar">
     <div class="panel-section">
-      <div class="panel-label">Color Zones</div>
+      <div class="panel-label">Coaster Stack</div>
+      <div class="zone-list">
+
+        <div class="zone-row stack-controls-row">
+          <div class="stack-control-group">
+            <span class="zone-material">Qty</span>
+            <div class="qty-chips">
+              <button class="qty-chip" data-qty="0" onclick="setQuantity(0)">OFF</button>
+              <button class="qty-chip" data-qty="1" onclick="setQuantity(1)">1</button>
+              <button class="qty-chip" data-qty="2" onclick="setQuantity(2)">2</button>
+              <button class="qty-chip" data-qty="3" onclick="setQuantity(3)">3</button>
+              <button class="qty-chip active" data-qty="4" onclick="setQuantity(4)">4</button>
+            </div>
+          </div>
+          <div class="stack-control-group">
+            <span class="zone-material">View</span>
+            <button class="flip-toggle" id="flip-toggle" onclick="flipTopCoaster()" aria-label="Flip top coaster">
+              <span class="flip-label side-a">SIDE A</span>
+              <span class="flip-indicator"></span>
+              <span class="flip-label side-b">SIDE B</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="zone-row stack-controls-row" id="rpm-row">
+          <div class="stack-control-group">
+            <span class="zone-material">RPM</span>
+            <div class="qty-chips">
+              <button class="qty-chip rpm-chip active" data-rpm="0"   onclick="setSpin(0)">OFF</button>
+              <button class="qty-chip rpm-chip"        data-rpm="33.333" onclick="setSpin(33.333)">33⅓</button>
+              <button class="qty-chip rpm-chip"        data-rpm="45"  onclick="setSpin(45)">45</button>
+              <button class="qty-chip rpm-chip"        data-rpm="78"  onclick="setSpin(78)">78</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="zone-row">
+          <div class="zone-swatch" id="swatch-Coaster_Body" style="background:#1A1A1A;">
+            <input type="color" id="color-Coaster_Body" value="#1A1A1A" oninput="setColor('Coaster_Body',this.value)">
+          </div>
+          <div class="zone-info">
+            <div class="zone-name">Record Body</div>
+            <div class="zone-material">Vinyl base</div>
+          </div>
+          <div class="zone-hex" id="hex-Coaster_Body">#1A1A1A</div>
+        </div>
+
+        <div class="zone-row">
+          <div class="zone-swatch" id="swatch-Label_A" style="background:#D93636;">
+            <input type="color" id="color-Label_A" value="#D93636" oninput="setColor('Label_A',this.value)">
+          </div>
+          <div class="zone-info">
+            <div class="zone-name">Side A</div>
+            <div class="zone-material">Top graphic</div>
+          </div>
+          <div class="zone-hex" id="hex-Label_A">#D93636</div>
+          <label class="label-upload-btn" id="upload-btn-Label_A" title="Upload image">
+            <input type="file" accept="image/*" style="display:none" onchange="handleLabelUpload('A',this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </label>
+          <button class="label-clear-btn" id="clear-btn-Label_A" title="Remove image" style="display:none" onclick="clearLabelTexture('A')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="zone-row">
+          <div class="zone-swatch" id="swatch-Label_B" style="background:#0F6FD7;">
+            <input type="color" id="color-Label_B" value="#0F6FD7" oninput="setColor('Label_B',this.value)">
+          </div>
+          <div class="zone-info">
+            <div class="zone-name">Side B</div>
+            <div class="zone-material">Bottom graphic</div>
+          </div>
+          <div class="zone-hex" id="hex-Label_B">#0F6FD7</div>
+          <label class="label-upload-btn" id="upload-btn-Label_B" title="Upload image">
+            <input type="file" accept="image/*" style="display:none" onchange="handleLabelUpload('B',this)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </label>
+          <button class="label-clear-btn" id="clear-btn-Label_B" title="Remove image" style="display:none" onclick="clearLabelTexture('B')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-label">Base Colors</div>
       <div class="zone-list">
 
         <div class="zone-row">
           <div class="zone-swatch" id="swatch-Yellow" style="background:#F5B82E;">
-            <input type="color" id="color-Yellow" value="#F5B82E" oninput="setColor('Yellow',this.value)">
+            <input type="color" id="color-Yellow" value="#C8C8C8" oninput="setColor('Yellow',this.value)">
           </div>
           <div class="zone-info">
             <div class="zone-name">Body</div>
             <div class="zone-material">Main body</div>
           </div>
-          <div class="zone-hex" id="hex-Yellow">#F5B82E</div>
+          <div class="zone-hex" id="hex-Yellow">#C8C8C8</div>
         </div>
 
         <div class="zone-row">
-          <div class="zone-swatch" id="swatch-Blue" style="background:#0F6FD7;">
-            <input type="color" id="color-Blue" value="#0F6FD7" oninput="setColor('Blue',this.value)">
+          <div class="zone-swatch" id="swatch-Side_Panel" style="background:#0F6FD7;">
+            <input type="color" id="color-Side_Panel" value="#0F6FD7" oninput="setColor('Side_Panel',this.value)">
           </div>
           <div class="zone-info">
             <div class="zone-name">Panel</div>
             <div class="zone-material">Side panel</div>
           </div>
-          <div class="zone-hex" id="hex-Blue">#0F6FD7</div>
+          <div class="zone-hex" id="hex-Side_Panel">#0F6FD7</div>
         </div>
 
         <div class="zone-row">
           <div class="zone-swatch" id="swatch-Pin_Mount" style="background:#1a1a1a;">
-            <input type="color" id="color-Pin_Mount" value="#1a1a1a" oninput="setColor('Pin_Mount',this.value)">
+            <input type="color" id="color-Pin_Mount" value="#FE8616" oninput="setColor('Pin_Mount',this.value)">
           </div>
           <div class="zone-info">
             <div class="zone-name">Pin Mount</div>
             <div class="zone-material">Spindle housing</div>
           </div>
-          <div class="zone-hex" id="hex-Pin_Mount">#1A1A1A</div>
+          <div class="zone-hex" id="hex-Pin_Mount">#FE8616</div>
         </div>
 
         <div class="zone-row">
           <div class="zone-swatch" id="swatch-Feet" style="background:#1a1a1a;">
-            <input type="color" id="color-Feet" value="#1a1a1a" oninput="setColor('Feet',this.value)">
+            <input type="color" id="color-Feet" value="#000000" oninput="setColor('Feet',this.value)">
           </div>
           <div class="zone-info">
             <div class="zone-name">Feet</div>
             <div class="zone-material">Rubber feet × 4</div>
           </div>
-          <div class="zone-hex" id="hex-Feet">#1A1A1A</div>
+          <div class="zone-hex" id="hex-Feet">#000000</div>
         </div>
 
       </div>
@@ -113,13 +179,13 @@
           <span class="preset-name">Bauhaus</span>
         </button>
 
-        <button class="preset-btn" onclick="applyPreset('dessau')" id="preset-dessau">
+        <button class="preset-btn" onclick="applyPreset('highvis')" id="preset-highvis">
           <div class="preset-dots">
-            <div class="preset-dot" style="background:#E4DCCF;"></div>
-            <div class="preset-dot" style="background:#003882;"></div>
-            <div class="preset-dot" style="background:#1C1C1C;"></div>
+            <div class="preset-dot" style="background:#C8C8C8;"></div>
+            <div class="preset-dot" style="background:#BBFF29;"></div>
+            <div class="preset-dot" style="background:#FE8616;"></div>
           </div>
-          <span class="preset-name">Dessau</span>
+          <span class="preset-name">High-Vis</span>
         </button>
 
         <button class="preset-btn" onclick="applyPreset('forest')" id="preset-forest">
@@ -155,10 +221,32 @@
     <div class="panel-section" style="display: flex; flex-direction: column; gap: 8px;">
       <button class="reset-btn" onclick="resetDefaults()">↺ &nbsp;Reset to Default</button>
       <button class="reset-btn" onclick="shareConfig()">🔗 &nbsp;Share Config</button>
+      <button class="theme-toggle sidebar-theme-toggle" id="themeBtn" aria-label="Toggle Dark Mode">
+        <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <span class="theme-toggle-label">Dark Mode</span>
+      </button>
     </div>
 
   </div>
-</main>
+
+</div><!-- /#left-column -->
+
+<div id="viewport">
+  <div id="loading">
+    <div id="load-progress">0%</div>
+    <div class="loader-ring"></div>
+    <div class="loader-label">Loading model</div>
+  </div>
+  <div id="canvas-container"></div>
+  <div class="viewport-hint">
+    <span>Drag to rotate</span>
+    <span class="hint-sep">·</span>
+    <span>Scroll to zoom</span>
+    <span class="hint-sep">·</span>
+    <span>Right-drag to pan</span>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="script.js"></script>

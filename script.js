@@ -8,40 +8,56 @@ class MTLLoader {
     const info = {}; let cur = null;
     for (let line of text.split('\n')) {
       line = line.trim();
-      if (!line || line[0]==='#') continue;
+      if (!line || line[0] === '#') continue;
       const sp = line.indexOf(' ');
-      const k = sp>=0 ? line.slice(0,sp) : line;
-      const v = sp>=0 ? line.slice(sp+1).trim() : '';
-      if (k==='newmtl') { cur=v; info[cur]={name:cur}; }
-      else if (cur) {
-        if (k==='Kd') info[cur].kd=v.split(/\s+/).map(Number);
-      }
+      const k = sp >= 0 ? line.slice(0, sp) : line;
+      const v = sp >= 0 ? line.slice(sp + 1).trim() : '';
+      if (k === 'newmtl') { cur = v; info[cur] = { name: cur }; }
+      else if (cur && k === 'Kd') { info[cur].kd = v.split(/\s+/).map(Number); }
     }
     return new MatCreator(info);
   }
 }
 
 class MatCreator {
-  constructor(info) { this.info=info; this.mats={}; }
+  constructor(info) { this.info = info; this.mats = {}; }
   preload() { for (const n in this.info) this.create(n); }
   create(name) {
     if (!this.mats[name]) {
-      const d  = this.info[name] || {};
-      const kd = d.kd || [1,1,1];
+      const d     = this.info[name] || {};
+      const kd    = d.kd || [1, 1, 1];
+      const props = MATERIAL_PROPS[name] || MATERIAL_PROPS._default;
       let m;
-      if (name === 'Steel') {
+
+      if (name === 'Record') {
+        // MeshPhysicalMaterial for vinyl — enables normalMap-driven anisotropy
+        m = new THREE.MeshPhysicalMaterial({
+          color:          new THREE.Color(kd[0], kd[1], kd[2]),
+          roughness:      props.roughness,
+          metalness:      props.metalness,
+          normalMap:      vinylNormalMap,
+          normalScale:    new THREE.Vector2(1.2, 1.2),
+          envMap:         envMap,
+          envMapIntensity: 0.6,
+          reflectivity:   0.4,
+        });
+      } else if (name === 'Steel') {
+        // Chrome-look: high metalness, low roughness, strong env reflection
         m = new THREE.MeshStandardMaterial({
-          color:      new THREE.Color(0xf5f5f5), 
-          metalness:  0.7,
-          roughness:  0.2,
+          color:           new THREE.Color(0xf0f0f0),
+          roughness:       props.roughness,
+          metalness:       props.metalness,
+          envMap:          envMap,
+          envMapIntensity: 1.8,
         });
       } else {
         m = new THREE.MeshStandardMaterial({
           color:     new THREE.Color(kd[0], kd[1], kd[2]),
-          metalness: 0.0,
-          roughness: 0.72,
+          roughness: props.roughness,
+          metalness: props.metalness,
         });
       }
+
       m.name = name;
       this.mats[name] = m;
     }
@@ -50,50 +66,111 @@ class MatCreator {
   get(name) { return this.mats[name] || null; }
 }
 
+// ─── SMOOTH-BY-ANGLE NORMALS ─────────────────────────────────────────────────
+// Replaces computeVertexNormals() with an angle-weighted version.
+// Faces sharing a vertex are averaged together only when the angle between
+// them is below thresholdDeg — giving smooth silhouettes on curves while
+// keeping intentional hard edges (e.g. the flat top/bottom of the coaster).
+function computeSmoothedNormals(geo, thresholdDeg) {
+  const pos    = geo.attributes.position;
+  const count  = pos.count;
+  const thresh = Math.cos(thresholdDeg * Math.PI / 180);
+
+  // Compute per-face normals and centroids
+  const faceNormals = [];
+  for (let f = 0; f < count; f += 3) {
+    const ax = pos.getX(f),   ay = pos.getY(f),   az = pos.getZ(f);
+    const bx = pos.getX(f+1), by = pos.getY(f+1), bz = pos.getZ(f+1);
+    const cx = pos.getX(f+2), cy = pos.getY(f+2), cz = pos.getZ(f+2);
+    const ex = bx-ax, ey = by-ay, ez = bz-az;
+    const fx = cx-ax, fy = cy-ay, fz = cz-az;
+    // Cross product e × f
+    const nx = ey*fz - ez*fy;
+    const ny = ez*fx - ex*fz;
+    const nz = ex*fy - ey*fx;
+    const len = Math.sqrt(nx*nx + ny*ny + nz*nz) || 1;
+    faceNormals.push(nx/len, ny/len, nz/len);
+  }
+
+  // Build a position→vertex index map (weld by position string key)
+  const posKey  = i => `${pos.getX(i).toFixed(6)},${pos.getY(i).toFixed(6)},${pos.getZ(i).toFixed(6)}`;
+  const posToVerts = {};
+  for (let i = 0; i < count; i++) {
+    const k = posKey(i);
+    if (!posToVerts[k]) posToVerts[k] = [];
+    posToVerts[k].push(i);
+  }
+
+  // For each vertex, average face normals within the threshold angle
+  const normals = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const fi  = Math.floor(i / 3);
+    const fnx = faceNormals[fi*3], fny = faceNormals[fi*3+1], fnz = faceNormals[fi*3+2];
+    let sx = fnx, sy = fny, sz = fnz;
+
+    const neighbours = posToVerts[posKey(i)] || [];
+    for (const j of neighbours) {
+      if (j === i) continue;
+      const fj  = Math.floor(j / 3);
+      if (fj === fi) continue;
+      const nx2 = faceNormals[fj*3], ny2 = faceNormals[fj*3+1], nz2 = faceNormals[fj*3+2];
+      const dot = fnx*nx2 + fny*ny2 + fnz*nz2;
+      if (dot >= thresh) { sx += nx2; sy += ny2; sz += nz2; }
+    }
+
+    const len = Math.sqrt(sx*sx + sy*sy + sz*sz) || 1;
+    normals[i*3]     = sx/len;
+    normals[i*3 + 1] = sy/len;
+    normals[i*3 + 2] = sz/len;
+  }
+
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+}
+
 // ─── OBJ LOADER ──────────────────────────────────────────────────────────────
 class OBJLoader {
-  constructor(mgr) { this.mgr=mgr||THREE.DefaultLoadingManager; this.mats=null; }
-  setMaterials(m) { this.mats=m; return this; }
+  constructor(mgr) { this.mgr = mgr || THREE.DefaultLoadingManager; this.mats = null; }
+  setMaterials(m) { this.mats = m; return this; }
   load(url, onLoad, onProg, onErr) {
-    new THREE.FileLoader(this.mgr).load(url, t=>onLoad(this.parse(t)), onProg, onErr);
+    new THREE.FileLoader(this.mgr).load(url, t => onLoad(this.parse(t)), onProg, onErr);
   }
   parse(text) {
-    const vp=[],vn=[];
-    const groups={};
-    let curMat='default';
+    const vp = [], vn = [];
+    const groups = {};
+    let curMat = 'default';
     for (const raw of text.split('\n')) {
-      const line=raw.trim();
-      if (!line||line[0]==='#') continue;
-      const p=line.split(/\s+/);
-      switch(p[0]) {
-        case 'v':  vp.push(+p[1],+p[2],+p[3]); break;
-        case 'vn': vn.push(+p[1],+p[2],+p[3]); break;
-        case 'usemtl': curMat=p.slice(1).join(' '); break;
+      const line = raw.trim();
+      if (!line || line[0] === '#') continue;
+      const p = line.split(/\s+/);
+      switch (p[0]) {
+        case 'v':      vp.push(+p[1], +p[2], +p[3]); break;
+        case 'vn':     vn.push(+p[1], +p[2], +p[3]); break;
+        case 'usemtl': curMat = p.slice(1).join(' '); break;
         case 'f': {
-          if (!groups[curMat]) groups[curMat]={pos:[],nor:[]};
-          const fv=p.slice(1).map(s=>s.split('/').map(x=>x?+x-1:-1));
-          for (let i=1;i<fv.length-1;i++) {
-            for (const [vi,,ni] of [fv[0],fv[i],fv[i+1]]) {
-              if (vi>=0) groups[curMat].pos.push(vp[vi*3],vp[vi*3+1],vp[vi*3+2]);
-              if (ni>=0) groups[curMat].nor.push(vn[ni*3],vn[ni*3+1],vn[ni*3+2]);
+          if (!groups[curMat]) groups[curMat] = { pos: [], nor: [] };
+          const fv = p.slice(1).map(s => s.split('/').map(x => x ? +x - 1 : -1));
+          for (let i = 1; i < fv.length - 1; i++) {
+            for (const [vi,, ni] of [fv[0], fv[i], fv[i + 1]]) {
+              if (vi >= 0) groups[curMat].pos.push(vp[vi*3], vp[vi*3+1], vp[vi*3+2]);
+              if (ni >= 0) groups[curMat].nor.push(vn[ni*3], vn[ni*3+1], vn[ni*3+2]);
             }
           }
           break;
         }
       }
     }
-    const root=new THREE.Group();
-    for (const [matName,data] of Object.entries(groups)) {
+    const root = new THREE.Group();
+    for (const [matName, data] of Object.entries(groups)) {
       if (!data.pos.length) continue;
-      const geo=new THREE.BufferGeometry();
-      geo.setAttribute('position',new THREE.Float32BufferAttribute(data.pos,3));
-      if (data.nor.length) geo.setAttribute('normal',new THREE.Float32BufferAttribute(data.nor,3));
-      else geo.computeVertexNormals();
-      let mat=this.mats?this.mats.get(matName):null;
-      if (!mat) mat=new THREE.MeshStandardMaterial({color:0x888888, roughness:0.72, metalness:0});
-      mat=mat.clone(); mat.name=matName;
-      const mesh=new THREE.Mesh(geo,mat);
-      mesh.name=matName;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(data.pos, 3));
+      if (data.nor.length) geo.setAttribute('normal', new THREE.Float32BufferAttribute(data.nor, 3));
+      else computeSmoothedNormals(geo, 35);
+      let mat = this.mats ? this.mats.get(matName) : null;
+      if (!mat) mat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.72, metalness: 0 });
+      mat = mat.clone(); mat.name = matName;
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = matName;
       root.add(mesh);
     }
     return root;
@@ -102,10 +179,10 @@ class OBJLoader {
 
 // ─── SCENE SETUP ─────────────────────────────────────────────────────────────
 const wrap = document.getElementById('canvas-container');
-const renderer = new THREE.WebGLRenderer({ antialias:true, alpha: false });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.85; 
+renderer.toneMappingExposure = 0.85;
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -113,131 +190,524 @@ wrap.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const bgLightColor = new THREE.Color('#EDE7DF');
-const bgDarkColor = new THREE.Color('#272727');
+const bgDarkColor  = new THREE.Color('#0f0f0f');
 scene.background = bgLightColor.clone();
 
 const camera = new THREE.PerspectiveCamera(38, 1, 0.001, 100);
 scene.add(camera);
 
-// ─── THEME TOGGLE (DARK MODE) ────────────────────────────────────────────────
+
+// ─── ENVIRONMENT MAP (chrome/metal reflections) ──────────────────────────────
+// Single vertical gradient baked into an equirectangular DataTexture, then
+// converted to a PMREMGenerator cube map. One seamless horizon = smooth chrome
+// reflections with no visible wall edges.
+//
+// Gradient stops (top → bottom):
+//   sky-blue top  →  sandy-tan horizon  →  dark-blue lower sky
+// Tune the colour stops here to change the look of all metal/reflective surfaces.
+function buildEnvMap() {
+  const W = 512, H = 256;
+  const data = new Uint8Array(W * H * 4);
+
+  // Gradient colour stops: [ 0..1 position, r, g, b ] — all in 0-255
+  const stops = [
+    [ 0.00,  42,  82, 130 ],   // deep sky blue — very top
+    [ 0.30,  96, 145, 185 ],   // mid sky blue
+    [ 0.50, 214, 195, 166 ],   // sandy tan — horizon
+    [ 0.65, 180, 165, 148 ],   // warm shadow below horizon
+    [ 0.80,  30,  42,  68 ],   // dark blue lower sky / floor reflection
+    [ 1.00,  15,  20,  35 ],   // near-black at very bottom
+  ];
+
+  function sampleGradient(t) {
+    for (let i = 0; i < stops.length - 1; i++) {
+      const [t0, r0, g0, b0] = stops[i];
+      const [t1, r1, g1, b1] = stops[i + 1];
+      if (t >= t0 && t <= t1) {
+        const f = (t - t0) / (t1 - t0);
+        return [
+          Math.round(r0 + (r1 - r0) * f),
+          Math.round(g0 + (g1 - g0) * f),
+          Math.round(b0 + (b1 - b0) * f),
+        ];
+      }
+    }
+    return [stops[stops.length-1][1], stops[stops.length-1][2], stops[stops.length-1][3]];
+  }
+
+  for (let y = 0; y < H; y++) {
+    const t   = y / (H - 1);
+    const [r, g, b] = sampleGradient(t);
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      data[i]     = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+      data[i + 3] = 255;
+    }
+  }
+
+  const equirect = new THREE.DataTexture(data, W, H, THREE.RGBAFormat);
+  equirect.encoding  = THREE.sRGBEncoding;
+  equirect.mapping   = THREE.EquirectangularReflectionMapping;
+  equirect.needsUpdate = true;
+
+  // Convert to PMREM so Three.js can use it for PBR environment lighting
+  const pmrem   = new THREE.PMREMGenerator(renderer);
+  const envMap  = pmrem.fromEquirectangular(equirect).texture;
+  pmrem.dispose();
+  equirect.dispose();
+  return envMap;
+}
+
+const envMap = buildEnvMap();
+scene.environment = envMap; // all PBR materials pick this up automatically
+
+// ─── VINYL RADIAL NORMAL MAP ─────────────────────────────────────────────────
+// Baked at runtime onto a canvas. Encodes the direction of the concentric
+// grooves so specular highlights stretch radially — the anisotropic look of
+// real vinyl without a custom shader.
+function buildVinylNormalMap(size = 512) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx  = canvas.getContext('2d');
+  const imgd = ctx.createImageData(size, size);
+  const data = imgd.data;
+  const half = size / 2;
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      // Vector from centre → this pixel
+      const dx = x - half;
+      const dy = y - half;
+      const len = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      // Tangent direction (perpendicular to radius = groove direction)
+      const tx = -dy / len;
+      const ty =  dx / len;
+
+      // Groove depth modulation: subtle sine ripple along radius
+      const r   = len / half;
+      const rip = Math.sin(r * 180 * Math.PI) * 0.12; // 180 groove bands
+
+      // Normal = blend of surface normal (0,0,1) perturbed by tangent
+      // strength controls how pronounced the anisotropy is
+      const strength = 0.35;
+      const nx =  tx * strength + rip * 0.08;
+      const ny = -ty * strength + rip * 0.08;
+      const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+
+      const i = (y * size + x) * 4;
+      data[i]     = Math.round((nx * 0.5 + 0.5) * 255); // R
+      data[i + 1] = Math.round((ny * 0.5 + 0.5) * 255); // G
+      data[i + 2] = Math.round((nz * 0.5 + 0.5) * 255); // B
+      data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(imgd, 0, 0);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.encoding = THREE.LinearEncoding;
+  return tex;
+}
+
+const vinylNormalMap = buildVinylNormalMap();
+
+// ─── THEME TOGGLE ────────────────────────────────────────────────────────────
 let isDarkMode = false;
 const themeBtn = document.getElementById('themeBtn');
-
 themeBtn.addEventListener('click', () => {
   isDarkMode = !isDarkMode;
   document.body.classList.toggle('dark-mode', isDarkMode);
-  
-  const moonIcon = themeBtn.querySelector('.icon-moon');
-  const sunIcon = themeBtn.querySelector('.icon-sun');
-  
-  if (isDarkMode) {
-    moonIcon.style.display = 'none';
-    sunIcon.style.display = 'block';
-  } else {
-    moonIcon.style.display = 'block';
-    sunIcon.style.display = 'none';
-  }
+  themeBtn.querySelector('.icon-moon').style.display = isDarkMode ? 'none'  : 'block';
+  themeBtn.querySelector('.icon-sun').style.display  = isDarkMode ? 'block' : 'none';
+  const lbl = themeBtn.querySelector('.theme-toggle-label');
+  if (lbl) lbl.textContent = isDarkMode ? 'Light Mode' : 'Dark Mode';
 });
 
-// ─── STUDIO LIGHTING ─────────────────────────────────────────────────────────
-const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-scene.add(ambient);
+// ─── LIGHTING CONFIG ─────────────────────────────────────────────────────────
+// All scene lighting in one place. Edit values here, then call
+// applyLightingConfig() in the browser console to hot-reload without a reload.
+//
+// Shadow tuning guide:
+//   bias      — negative pulls shadow toward caster. Too negative = detached
+//               shadow. Too close to 0 = shadow acne. Range: -0.0001 to -0.00005
+//   mapSize   — shadow map resolution. Higher = sharper (1024/2048/4096/8192).
+//   radius    — PCF blur softness. 0 = hard. 4–8 = soft.
+//   frustum   — orthographic box the shadow camera sees, in world units.
+//               Must contain every shadow-casting object. Smaller = sharper.
+//   opacity   — floor shadow darkness (0 = none, 1 = black).
+const LIGHTING_CONFIG = {
+  ambient: {
+    color:     0xffffff,
+    intensity: 0.2,
+  },
+  key: {
+    color:     0xffffff,
+    intensity: 0.5,
+    position:  { x: 4, y: 8, z: 3 },
+    shadow: {
+      mapSize:  8192,
+      radius:   3,
+      bias:     -0.00008,
+      near:     0.001,
+      far:      10.0,
+      left:    -0.2,
+      right:    0.2,
+      top:      0.2,
+      bottom:  -0.2,
+    },
+  },
+  fill: {
+    color:     0xddeeff,
+    intensity: 0.2,
+    position:  { x: -4, y: 3, z: 2 },
+  },
+  rim: {
+    color:     0xfff5e8,
+    intensity: 0.4,
+    position:  { x: 0, y: 4, z: -4 },
+  },
+  shadow: {
+    opacity: 0.3,
+    planeY:  0.0,
+  },
+};
 
-const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
-keyLight.position.set(4, 6, 3);
+// ─── LIGHTING & SHADOWS ──────────────────────────────────────────────────────
+const ambientLight = new THREE.AmbientLight(
+  LIGHTING_CONFIG.ambient.color,
+  LIGHTING_CONFIG.ambient.intensity
+);
+scene.add(ambientLight);
+
+const keyLight = new THREE.DirectionalLight(
+  LIGHTING_CONFIG.key.color,
+  LIGHTING_CONFIG.key.intensity
+);
+keyLight.position.set(
+  LIGHTING_CONFIG.key.position.x,
+  LIGHTING_CONFIG.key.position.y,
+  LIGHTING_CONFIG.key.position.z
+);
 keyLight.castShadow = true;
-keyLight.shadow.mapSize.setScalar(8192);
-keyLight.shadow.camera.near   =  0.01;
-keyLight.shadow.camera.far    =  10.0;
-keyLight.shadow.camera.left   = -0.5;
-keyLight.shadow.camera.right  =  0.5;
-keyLight.shadow.camera.top    =  0.5;
-keyLight.shadow.camera.bottom = -0.5;
-keyLight.shadow.radius        =  4;
-keyLight.shadow.bias          = -0.0004;
+keyLight.shadow.mapSize.setScalar(LIGHTING_CONFIG.key.shadow.mapSize);
+keyLight.shadow.radius        = LIGHTING_CONFIG.key.shadow.radius;
+keyLight.shadow.bias          = LIGHTING_CONFIG.key.shadow.bias;
+keyLight.shadow.camera.near   = LIGHTING_CONFIG.key.shadow.near;
+keyLight.shadow.camera.far    = LIGHTING_CONFIG.key.shadow.far;
+keyLight.shadow.camera.left   = LIGHTING_CONFIG.key.shadow.left;
+keyLight.shadow.camera.right  = LIGHTING_CONFIG.key.shadow.right;
+keyLight.shadow.camera.top    = LIGHTING_CONFIG.key.shadow.top;
+keyLight.shadow.camera.bottom = LIGHTING_CONFIG.key.shadow.bottom;
+keyLight.shadow.camera.updateProjectionMatrix();
 scene.add(keyLight);
 
-const fillLight = new THREE.DirectionalLight(0xddeeff, 0.3);
-fillLight.position.set(-4, 3, 2);
+const fillLight = new THREE.DirectionalLight(
+  LIGHTING_CONFIG.fill.color,
+  LIGHTING_CONFIG.fill.intensity
+);
+fillLight.position.set(
+  LIGHTING_CONFIG.fill.position.x,
+  LIGHTING_CONFIG.fill.position.y,
+  LIGHTING_CONFIG.fill.position.z
+);
 scene.add(fillLight);
 
-const rimLight = new THREE.DirectionalLight(0xfff5e8, 0.5);
-rimLight.position.set(0, 4, -4);
+const rimLight = new THREE.DirectionalLight(
+  LIGHTING_CONFIG.rim.color,
+  LIGHTING_CONFIG.rim.intensity
+);
+rimLight.position.set(
+  LIGHTING_CONFIG.rim.position.x,
+  LIGHTING_CONFIG.rim.position.y,
+  LIGHTING_CONFIG.rim.position.z
+);
 scene.add(rimLight);
 
-// ─── SHADOW PLANE ────────────────────────────────────────────────────────────
-const shadowMat = new THREE.ShadowMaterial({ opacity: 0.0, transparent: true });
-const shadowPlane = new THREE.Mesh(
-  new THREE.PlaneGeometry(5, 5),
-  shadowMat
-);
+const shadowMat = new THREE.ShadowMaterial({
+  opacity:     LIGHTING_CONFIG.shadow.opacity,
+  transparent: true,
+});
+const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), shadowMat);
 shadowPlane.rotation.x = -Math.PI / 2;
-shadowPlane.position.y = 0; 
+shadowPlane.position.y = LIGHTING_CONFIG.shadow.planeY;
 shadowPlane.receiveShadow = true;
 scene.add(shadowPlane);
 
-// ─── ORBIT CONTROLS (WITH EASING) ────────────────────────────────────────────
-let drag=false, rDrag=false, px=0, py=0;
+// Hot-reload lighting config without a page reload.
+function applyLightingConfig() {
+  ambientLight.color.set(LIGHTING_CONFIG.ambient.color);
+  ambientLight.intensity = LIGHTING_CONFIG.ambient.intensity;
+  keyLight.color.set(LIGHTING_CONFIG.key.color);
+  keyLight.intensity = LIGHTING_CONFIG.key.intensity;
+  keyLight.position.set(LIGHTING_CONFIG.key.position.x, LIGHTING_CONFIG.key.position.y, LIGHTING_CONFIG.key.position.z);
+  keyLight.shadow.radius        = LIGHTING_CONFIG.key.shadow.radius;
+  keyLight.shadow.bias          = LIGHTING_CONFIG.key.shadow.bias;
+  keyLight.shadow.camera.near   = LIGHTING_CONFIG.key.shadow.near;
+  keyLight.shadow.camera.far    = LIGHTING_CONFIG.key.shadow.far;
+  keyLight.shadow.camera.left   = LIGHTING_CONFIG.key.shadow.left;
+  keyLight.shadow.camera.right  = LIGHTING_CONFIG.key.shadow.right;
+  keyLight.shadow.camera.top    = LIGHTING_CONFIG.key.shadow.top;
+  keyLight.shadow.camera.bottom = LIGHTING_CONFIG.key.shadow.bottom;
+  keyLight.shadow.camera.updateProjectionMatrix();
+  keyLight.shadow.map = null;
+  fillLight.color.set(LIGHTING_CONFIG.fill.color);
+  fillLight.intensity = LIGHTING_CONFIG.fill.intensity;
+  fillLight.position.set(LIGHTING_CONFIG.fill.position.x, LIGHTING_CONFIG.fill.position.y, LIGHTING_CONFIG.fill.position.z);
+  rimLight.color.set(LIGHTING_CONFIG.rim.color);
+  rimLight.intensity = LIGHTING_CONFIG.rim.intensity;
+  rimLight.position.set(LIGHTING_CONFIG.rim.position.x, LIGHTING_CONFIG.rim.position.y, LIGHTING_CONFIG.rim.position.z);
+  shadowPlane.material.opacity = LIGHTING_CONFIG.shadow.opacity;
+  shadowPlane.position.y       = LIGHTING_CONFIG.shadow.planeY;
+}
 
-// Separate target and current values to allow for smooth interpolation
-let targetSph  = { t:-0.5, p:1.05, r:0.22 };
-let currentSph = { t:-0.5, p:1.05, r:0.22 };
-
-let targetTgt  = new THREE.Vector3(0,0.01,0);
-let currentTgt = new THREE.Vector3(0,0.01,0);
-
-let autoRot=true, rotTimer=null;
+// ─── ORBIT CONTROLS ──────────────────────────────────────────────────────────
+let drag = false, rDrag = false, px = 0, py = 0;
+let targetSph  = { t: -0.5, p: 1.05, r: 0.22 };
+let currentSph = { t: -0.5, p: 1.05, r: 0.22 };
+let targetTgt  = new THREE.Vector3(0, 0.01, 0);
+let currentTgt = new THREE.Vector3(0, 0.01, 0);
+let autoRot = true, rotTimer = null;
 
 function updateCam() {
-  const {t,p,r} = currentSph;
+  const { t, p, r } = currentSph;
   camera.position.set(
-    currentTgt.x + r*Math.sin(p)*Math.sin(t),
-    currentTgt.y + r*Math.cos(p),
-    currentTgt.z + r*Math.sin(p)*Math.cos(t)
+    currentTgt.x + r * Math.sin(p) * Math.sin(t),
+    currentTgt.y + r * Math.cos(p),
+    currentTgt.z + r * Math.sin(p) * Math.cos(t)
   );
   camera.lookAt(currentTgt);
 }
 
 const cvs = renderer.domElement;
-cvs.addEventListener('mousedown', e=>{
-  drag=true; rDrag=e.button===2;
-  px=e.clientX; py=e.clientY;
-  autoRot=false; clearTimeout(rotTimer);
+cvs.addEventListener('mousedown', e => {
+  drag = true; rDrag = e.button === 2;
+  px = e.clientX; py = e.clientY;
+  autoRot = false; clearTimeout(rotTimer);
 });
-window.addEventListener('mouseup',()=>{
-  drag=false;
-  rotTimer=setTimeout(()=>{ autoRot=true; },4000);
+window.addEventListener('mouseup', () => {
+  drag = false;
+  rotTimer = setTimeout(() => { autoRot = true; }, 4000);
 });
-window.addEventListener('mousemove',e=>{
-  if(!drag) return;
-  const dx=e.clientX-px, dy=e.clientY-py;
-  px=e.clientX; py=e.clientY;
+window.addEventListener('mousemove', e => {
+  if (!drag) return;
+  const dx = e.clientX - px, dy = e.clientY - py;
+  px = e.clientX; py = e.clientY;
   if (rDrag) {
-    const r=new THREE.Vector3();
-    r.crossVectors(camera.getWorldDirection(new THREE.Vector3()),camera.up).normalize();
-    targetTgt.addScaledVector(r,-dx*0.0003);
-    targetTgt.addScaledVector(camera.up,dy*0.0003);
+    const r = new THREE.Vector3();
+    r.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
+    targetTgt.addScaledVector(r, -dx * 0.0003);
+    targetTgt.addScaledVector(camera.up, dy * 0.0003);
   } else {
-    targetSph.t -= dx*0.008;
-    targetSph.p = Math.max(0.01, Math.min(Math.PI - 0.01, targetSph.p - dy*0.008));
+    targetSph.t -= dx * 0.008;
+    targetSph.p = Math.max(0.01, Math.min(Math.PI - 0.01, targetSph.p - dy * 0.008));
   }
 });
-cvs.addEventListener('wheel',e=>{
+cvs.addEventListener('wheel', e => {
   e.preventDefault();
-  targetSph.r = Math.max(0.08,Math.min(0.6,targetSph.r+e.deltaY*0.0002));
-  autoRot=false; clearTimeout(rotTimer);
-  rotTimer=setTimeout(()=>{ autoRot=true; },3000);
-},{passive:false});
-cvs.addEventListener('contextmenu',e=>e.preventDefault());
+  targetSph.r = Math.max(0.08, Math.min(0.6, targetSph.r + e.deltaY * 0.0002));
+  autoRot = false; clearTimeout(rotTimer);
+  rotTimer = setTimeout(() => { autoRot = true; }, 3000);
+}, { passive: false });
+cvs.addEventListener('contextmenu', e => e.preventDefault());
 
-// ─── COLOR STATE & URL SYNC ──────────────────────────────────────────────────
-const colors = {
-  Yellow:    '#F5B82E',
-  Blue:      '#0F6FD7',
-  Feet:      '#1a1a1a',
-  Pin_Mount: '#1a1a1a',
+// ─── MATERIAL PROPERTIES ─────────────────────────────────────────────────────
+// Tune roughness (0 = mirror, 1 = fully diffuse) and metalness (0–1) per
+// material here. Changes take effect on next page load since materials are
+// created during OBJ parse. All names match the MTL material names exactly.
+//
+// Coaster OBJ  (Signal_Record_Coaster_01.mtl)
+//   Record      — vinyl body
+//   Red         — Side A label
+//   Blue        — Side B label
+//
+// Base OBJ     (Signal_Record_Coaster_Base_01.mtl)  — names may vary by export;
+//   check your MTL file for the exact names used there.
+//   Yellow      — main body
+//   Blue        — side panel  (shared name with coaster Blue — same props apply)
+//   Feet        — rubber feet
+//   Pin_Mount   — spindle housing
+//   Steel       — steel pin
+//
+const MATERIAL_PROPS = {
+  // ── Coaster ──────────────────────────────────────────────────────────────
+  // normalScale: strength of the radial groove normal map (0 = flat, 2 = very deep)
+  Record:    { roughness: 0.0, metalness: 0.0,  normalScale: 1.5 },
+  Red:       { roughness: 0.5, metalness: 0.0  },
+  Blue:      { roughness: 0.5, metalness: 0.0  },
+
+  // ── Base ─────────────────────────────────────────────────────────────────
+  Yellow:    { roughness: 0.6,  metalness: 0.0  },  // main body
+  Feet:      { roughness: 0.6, metalness: 0.0  },  // rubber feet — very matte
+  Pin_Mount: { roughness: 0.6,  metalness: 0.0  },  // spindle housing
+  // envMapIntensity: reflection strength (0 = none, 2 = very strong)
+  Steel:     { roughness: 0.2, metalness: 0.95, envMapIntensity: 1.0 },
+
+  // ── Fallback for any unlisted material ───────────────────────────────────
+  _default:  { roughness: 0.72, metalness: 0.0  },
 };
 
+// ─── COLOR STATE ─────────────────────────────────────────────────────────────
+// Default colors — single source of truth for reset
+const DEFAULT_COLORS = {
+  // Coaster
+  Coaster_Body: '#1A1A1A',
+  Label_A:      '#D93636',
+  Label_B:      '#0F6FD7',
+  // Base
+  Yellow:       '#F5B82E',
+  Side_Panel:   '#0F6FD7',
+  Feet:         '#1A1A1A',
+  Pin_Mount:    '#1A1A1A',
+};
+
+const colors = { ...DEFAULT_COLORS };
+
+// Direct map from Signal_Record_Coaster_01.mtl material names → colors keys
+// MTL defines exactly: Red, Blue, Record
+const COASTER_MAT_MAP = {
+  'Red':    'Label_A',
+  'Blue':   'Label_B',
+  'Record': 'Coaster_Body',
+};
+
+// ─── LABEL TEXTURE STATE ─────────────────────────────────────────────────────
+// Stores the source Image and offscreen canvas per label slot so we can
+// redraw the canvas (with updated background color) whenever the picker changes.
+const labelState = {
+  Red:  { img: null, canvas: null, tex: null },
+  Blue: { img: null, canvas: null, tex: null },
+};
+
+// Draw img cover-cropped onto a square canvas with bgHex as background.
+// Alpha areas of the image show the background color.
+function drawLabelCanvas(canvas, img, bgHex) {
+  const size = canvas.width;
+  const ctx  = canvas.getContext('2d');
+  ctx.clearRect(0, 0, size, size);
+  // Fill background with current label color
+  ctx.fillStyle = bgHex;
+  ctx.fillRect(0, 0, size, size);
+  // Cover-crop: scale to fill, center, let overflow clip naturally
+  const scale = Math.max(size / img.width, size / img.height);
+  const dw    = img.width  * scale;
+  const dh    = img.height * scale;
+  ctx.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh);
+}
+
+// Inject flat circular UV coordinates onto a label mesh from its vertex positions.
+// Called once after the coaster model loads on Red and Blue meshes only.
+// The Record mesh is intentionally left without UVs so the vinyl normal map
+// is never activated — keeping the vinyl look correct.
+function injectLabelUVs(mesh, mirrorU) {
+  const pos = mesh.geometry.attributes.position;
+  if (!pos) return;
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+  }
+  const cx = (minX + maxX) / 2;
+  const cz = (minZ + maxZ) / 2;
+  const r  = Math.max(maxX - minX, maxZ - minZ) / 2 || 1;
+  const uvs = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    const u = (pos.getX(i) - cx) / (r * 2) + 0.5;
+    uvs[i * 2]     = mirrorU ? 1.0 - u : u;
+    uvs[i * 2 + 1] = (pos.getZ(i) - cz) / (r * 2) + 0.5;
+  }
+  mesh.geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+}
+
+// Apply or clear the texture on all coaster stack meshes matching matName.
+// When active: material color = white (so image shows true), map = canvas texture.
+// When cleared: material color restored from picker, map = null.
+function applyLabelTexture(matName) {
+  const state    = labelState[matName];
+  const colorKey = COASTER_MAT_MAP[matName];
+  const hasTex   = !!state.tex;
+  coasterStack.forEach(cGroup => {
+    cGroup.traverse(m => {
+      if (!m.isMesh || m.name !== matName) return;
+      if (hasTex) {
+        m.material.map   = state.tex;
+        m.material.color.set(0xffffff); // white = no tint, image shows true
+      } else {
+        m.material.map   = null;
+        if (colorKey) m.material.color.copy(hexToC(colors[colorKey]));
+      }
+      m.material.needsUpdate = true;
+    });
+  });
+}
+
+// Called when the color picker changes for a label that has an active texture.
+// Redraws the canvas background so alpha areas update immediately.
+function updateLabelTextureBackground(matName, bgHex) {
+  const state = labelState[matName];
+  if (!state.img || !state.canvas || !state.tex) return;
+  drawLabelCanvas(state.canvas, state.img, bgHex);
+  state.tex.needsUpdate = true;
+}
+
+window.handleLabelUpload = function(side, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const matName  = side === 'A' ? 'Red'     : 'Blue';
+  const colorKey = side === 'A' ? 'Label_A' : 'Label_B';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const state = labelState[matName];
+
+      // Dispose previous texture if any
+      if (state.tex) { state.tex.dispose(); state.tex = null; }
+
+      // Create offscreen canvas and draw cover-crop with current label color as bg
+      const size   = 1024;
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      drawLabelCanvas(canvas, img, colors[colorKey] || '#ffffff');
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding    = THREE.sRGBEncoding;
+      tex.flipY       = true;
+      tex.needsUpdate = true;
+
+      state.img    = img;
+      state.canvas = canvas;
+      state.tex    = tex;
+
+      applyLabelTexture(matName);
+
+      document.getElementById('upload-btn-' + colorKey).style.display = 'none';
+      document.getElementById('clear-btn-'  + colorKey).style.display = 'flex';
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+};
+
+window.clearLabelTexture = function(side) {
+  const matName  = side === 'A' ? 'Red'     : 'Blue';
+  const colorKey = side === 'A' ? 'Label_A' : 'Label_B';
+  const state    = labelState[matName];
+  if (state.tex) { state.tex.dispose(); state.tex = null; }
+  state.img = null; state.canvas = null;
+  applyLabelTexture(matName);
+  const sw = document.getElementById('swatch-' + colorKey);
+  if (sw) { sw.style.backgroundImage = ''; sw.style.background = colors[colorKey]; }
+  document.getElementById('upload-btn-' + colorKey).style.display = 'flex';
+  document.getElementById('clear-btn-'  + colorKey).style.display = 'none';
+};
+
+// ─── URL SYNC ────────────────────────────────────────────────────────────────
 function loadFromURL() {
   const params = new URLSearchParams(window.location.search);
   let loaded = false;
@@ -245,166 +715,501 @@ function loadFromURL() {
     if (params.has(key)) {
       const hex = '#' + params.get(key);
       colors[key] = hex;
-      const sw  = document.getElementById('swatch-'+key);
-      const hx  = document.getElementById('hex-'+key);
-      const inp = document.getElementById('color-'+key);
-      if (sw) sw.style.background = hex;
-      if (hx) hx.textContent = hex.toUpperCase();
-      if (inp) inp.value = hex;
+      syncColorUI(key, hex);
       loaded = true;
     }
   }
+  if (params.has('stack')) {
+    const s = parseInt(params.get('stack'));
+    if (!isNaN(s)) { stackCount = s; loaded = true; }
+  }
   if (loaded) {
-    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
   }
 }
-loadFromURL();
 
-let model = null;
+// Update all UI elements for one color key
+function syncColorUI(key, hex) {
+  const sw  = document.getElementById('swatch-' + key);
+  const hx  = document.getElementById('hex-' + key);
+  const inp = document.getElementById('color-' + key);
+  if (sw)  sw.style.background = hex;
+  if (hx)  hx.textContent = hex.toUpperCase();
+  if (inp) inp.value = hex;
+}
 
+// ─── MODEL STATE ─────────────────────────────────────────────────────────────
+let model        = null;
+let coasterModel = null;
+let coasterStack = [];
+let stackCount   = 4;
+
+// ─── FLIP ANIMATION STATE ────────────────────────────────────────────────────
+// isFlipped: false = Side A facing up, true = Side B facing up
+let isFlipped     = false;
+let isAnimating   = false;
+
+// \u2500\u2500\u2500 SPIN STATE \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\r
+// RPM values: 33.333, 45, 78 \u2192 radians per frame at 60fps
+// 0 = stopped
+let spinRPM = 0;
+const RPM_TO_RAD_PER_FRAME = (2 * Math.PI) / 60; // 1 RPM at 60fps
+
+window.setSpin = function(rpm) {
+  spinRPM = rpm;
+  document.querySelectorAll('.rpm-chip').forEach(btn => {
+    btn.classList.toggle('active', parseFloat(btn.dataset.rpm) === rpm);
+  });
+};
+
+function updateSpinUI() {
+  const row = document.getElementById('rpm-row');
+  if (!row) return;
+  const active = stackCount === 1;
+  row.style.opacity       = active ? '1' : '0.35';
+  row.style.pointerEvents = active ? '' : 'none';
+  // Always reset to OFF when not active so the OFF chip stays highlighted
+  if (!active) window.setSpin(0);
+}
+
+// ─── COLOR HELPERS ───────────────────────────────────────────────────────────
 function hexToC(hex) {
   return new THREE.Color(hex).convertSRGBToLinear();
 }
 
 function applyColors() {
-  if (!model) return;
-  model.traverse(m=>{
-    if (!m.isMesh) return;
-    if (m.name === 'Steel') return; 
-    const c = colors[m.name];
-    if (c) m.material.color.copy(hexToC(c));
+  // Base model — mesh names match colors keys directly
+  if (model) {
+    model.traverse(m => {
+      if (!m.isMesh || m.name === 'Steel') return;
+      const c = colors[m.name];
+      if (c) m.material.color.copy(hexToC(c));
+    });
+  }
+  // Coaster stack — exact MTL name lookup, no guessing
+  coasterStack.forEach(cGroup => {
+    cGroup.traverse(m => {
+      if (!m.isMesh) return;
+      const colorKey = COASTER_MAT_MAP[m.name];
+      if (!colorKey) return;
+      if (labelState[m.name] && labelState[m.name].tex) {
+        // Texture active — redraw canvas background with new color so alpha areas update
+        updateLabelTextureBackground(m.name, colors[colorKey]);
+        return; // material color stays white
+      }
+      m.material.color.copy(hexToC(colors[colorKey]));
+    });
   });
 }
 
-// ─── LOAD ────────────────────────────────────────────────────────────────────
+// Apply roughness, metalness, normalScale from MATERIAL_PROPS to every mesh.
+// Call applyMaterialProps() in the browser console to hot-reload changes
+// without a page reload — e.g. tweak MATERIAL_PROPS.Record.roughness then call it.
+function applyMaterialProps() {
+  const applyToMesh = m => {
+    if (!m.isMesh) return;
+    const props = MATERIAL_PROPS[m.name] || MATERIAL_PROPS._default;
+    m.material.roughness = props.roughness;
+    m.material.metalness = props.metalness;
+    // Re-apply normalScale for vinyl if props expose it
+    if (m.name === 'Record' && m.material.normalScale) {
+      const ns = props.normalScale !== undefined ? props.normalScale : 1.2;
+      m.material.normalScale.set(ns, ns);
+    }
+    // Re-apply envMapIntensity for steel
+    if (m.name === 'Steel' && m.material.envMapIntensity !== undefined) {
+      m.material.envMapIntensity = props.envMapIntensity !== undefined ? props.envMapIntensity : 1.8;
+    }
+    m.material.needsUpdate = true;
+  };
+  if (model) model.traverse(applyToMesh);
+  coasterStack.forEach(g => g.traverse(applyToMesh));
+}
+
+// ─── LOAD & ASSEMBLE ─────────────────────────────────────────────────────────
 const loadEl = document.getElementById('loading');
 const progEl = document.getElementById('load-progress');
 const mgr    = new THREE.LoadingManager();
 
-new MTLLoader(mgr).load(
-  './3D/Signal_Record_Coaster_Base_01.mtl', 
-  mc => {
-    mc.preload();
-    const objL = new OBJLoader(mgr);
-    objL.setMaterials(mc);
-    objL.load(
-      './3D/Signal_Record_Coaster_Base_01.obj',
-      obj => {
-        const box = new THREE.Box3().setFromObject(obj);
-        const cen = box.getCenter(new THREE.Vector3());
-        const sz  = box.getSize(new THREE.Vector3());
-        
-        obj.position.sub(cen);
-        
-        const sc = 0.1/Math.max(sz.x,sz.y,sz.z);
-        obj.scale.setScalar(sc);
-        
-        obj.updateMatrixWorld();
-        
-        const scaledBox = new THREE.Box3().setFromObject(obj);
-        obj.position.y -= scaledBox.min.y;
-        
-        obj.traverse(c => {
-          if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
-        });
-        scene.add(obj);
-        model = obj;
-        applyColors();
-        loadEl.classList.add('hidden');
-        setTimeout(()=>loadEl.style.display='none', 600);
-      },
-      xhr => { if(xhr.total) progEl.textContent = Math.round((xhr.loaded/xhr.total)*100)+'%'; },
-      err => { console.error("OBJ Error:", err); progEl.textContent = 'OBJ Missing'; }
-    );
-  },
-  xhr => {},
-  err => { console.error("MTL Error:", err); progEl.textContent = 'MTL Missing'; }
-);
+function loadObjMtl(objPath, mtlPath) {
+  return new Promise((resolve, reject) => {
+    new MTLLoader(mgr).load(mtlPath, mc => {
+      mc.preload();
+      new OBJLoader(mgr).setMaterials(mc).load(
+        objPath, resolve,
+        xhr => { if (xhr.total) progEl.textContent = Math.round((xhr.loaded / xhr.total) * 100) + '%'; },
+        reject
+      );
+    }, undefined, reject);
+  });
+}
 
-// ─── RESIZE + LOOP ───────────────────────────────────────────────────────────
+loadFromURL();
+
+Promise.all([
+  loadObjMtl('./3D/Signal_Record_Coaster_Base_01.obj', './3D/Signal_Record_Coaster_Base_01.mtl'),
+  loadObjMtl('./3D/Signal_Record_Coaster_01.obj',      './3D/Signal_Record_Coaster_01.mtl'),
+]).then(([baseObj, costrObj]) => {
+
+  // 1. Base — center, scale, ground
+  const box = new THREE.Box3().setFromObject(baseObj);
+  const cen = box.getCenter(new THREE.Vector3());
+  const sz  = box.getSize(new THREE.Vector3());
+  baseObj.position.sub(cen);
+  const sc = 0.1 / Math.max(sz.x, sz.y, sz.z);
+  baseObj.scale.setScalar(sc);
+  baseObj.updateMatrixWorld(true);
+  const scaledBox = new THREE.Box3().setFromObject(baseObj);
+  baseObj.position.y -= scaledBox.min.y;
+  baseObj.updateMatrixWorld(true);
+  // Second-pass: re-measure after full world matrix resolution to catch any
+  // child meshes (e.g. Feet) that sit below the first measured min.y
+  const trueBox = new THREE.Box3().setFromObject(baseObj);
+  if (trueBox.min.y < 0) baseObj.position.y -= trueBox.min.y;
+  baseObj.updateMatrixWorld(true);
+  baseObj.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+  scene.add(baseObj);
+  model = baseObj;
+
+  // 2. Find pin position — search for Pin_Mount mesh by name
+  window.pinX     = 0;
+  window.pinZ     = 0;
+  window.pinBaseY = 0;
+  baseObj.traverse(c => {
+    if (!c.isMesh) return;
+    const low = c.name.toLowerCase();
+    if (low.includes('mount') || low.includes('pin') || low.includes('spindle')) {
+      const pBox = new THREE.Box3().setFromObject(c);
+      if (pBox.max.y > window.pinBaseY) {
+        const pCen = pBox.getCenter(new THREE.Vector3());
+        window.pinX     = pCen.x;
+        window.pinZ     = pCen.z;
+        window.pinBaseY = pBox.max.y;
+      }
+    }
+  });
+  if (window.pinBaseY <= 0) {
+    window.pinBaseY = trueBox.max.y * 0.15;
+  }
+
+  // 3. Coaster — center bottom at origin, wrap, scale
+  const rawCBox = new THREE.Box3().setFromObject(costrObj);
+  const rawCCen = rawCBox.getCenter(new THREE.Vector3());
+  costrObj.position.set(-rawCCen.x, -rawCCen.y, -rawCCen.z);
+  costrObj.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+  const coasterWrapper = new THREE.Group();
+  coasterWrapper.add(costrObj);
+  coasterWrapper.scale.setScalar(sc);
+  coasterWrapper.updateMatrixWorld(true);
+  const scaledCBox = new THREE.Box3().setFromObject(coasterWrapper);
+  window.cThickness = scaledCBox.max.y - scaledCBox.min.y;
+  window.halfCThickness = window.cThickness / 2;
+  coasterModel = coasterWrapper;
+
+  // Inject UVs onto label meshes (Red, Blue) only for image upload support.
+  // Record mesh is intentionally left without UVs — keeps vinyl normals correct.
+  coasterWrapper.traverse(m => {
+    if (m.isMesh && m.name === 'Red')  injectLabelUVs(m, true);  // mirror to correct Side A orientation
+    if (m.isMesh && m.name === 'Blue') injectLabelUVs(m, false);
+  });
+
+  // 4. Build stack and apply colors + material properties
+  window.updateStack(stackCount);
+  applyColors();
+  applyMaterialProps();
+
+  // 5. Pre-load default label image into both Side A and Side B
+  preloadLabelImage('./images/Signal_Symbol_01.svg');
+
+  loadEl.classList.add('hidden');
+  setTimeout(() => loadEl.style.display = 'none', 600);
+
+}).catch(err => {
+  console.error('Asset load error:', err);
+  progEl.textContent = 'Load Error';
+});
+
+// ─── LABEL PRELOAD ──────────────────────────────────────────────────────────────────────────
+// Loads a URL into both label slots using the same pipeline as manual upload.
+// Called once after the coaster model finishes loading.
+function preloadLabelImage(url) {
+  const img = new Image();
+  img.onload = () => {
+    ['Red', 'Blue'].forEach(matName => {
+      const colorKey = COASTER_MAT_MAP[matName];
+      const state    = labelState[matName];
+      if (state.tex) { state.tex.dispose(); state.tex = null; }
+      const size   = 1024;
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = size;
+      drawLabelCanvas(canvas, img, colors[colorKey] || '#ffffff');
+      const tex        = new THREE.CanvasTexture(canvas);
+      tex.encoding     = THREE.sRGBEncoding;
+      tex.flipY        = true;
+      tex.needsUpdate  = true;
+      state.img    = img;
+      state.canvas = canvas;
+      state.tex    = tex;
+      applyLabelTexture(matName);
+      const uploadBtn = document.getElementById('upload-btn-' + colorKey);
+      const clearBtn  = document.getElementById('clear-btn-'  + colorKey);
+      if (uploadBtn) uploadBtn.style.display = 'none';
+      if (clearBtn)  clearBtn.style.display  = 'flex';
+    });
+  };
+  img.src = url;
+}
+
+// ─── STACK MANAGEMENT ────────────────────────────────────────────────────────
+window.updateStack = function(val) {
+  // If animating, snap the top coaster back before rebuilding
+  if (isAnimating) cancelFlip();
+  // Always reset spin to OFF whenever stack changes
+  window.setSpin(0);
+
+  stackCount = parseInt(val);
+
+  coasterStack.forEach(c => scene.remove(c));
+  coasterStack = [];
+
+  if (!coasterModel || stackCount === 0) {
+    updateFlipToggleUI();
+    updateSpinUI();
+    return;
+  }
+
+  for (let i = 0; i < stackCount; i++) {
+    const clone = coasterModel.clone();
+    clone.rotation.y = Math.random() * Math.PI * 2;
+    clone.position.x = window.pinX;
+    clone.position.z = window.pinZ;
+    clone.position.y = window.pinBaseY + window.halfCThickness + (i * window.cThickness * 1.06);
+    // Top coaster: match the current flip state so it stays consistent
+    if (i === stackCount - 1 && isFlipped) {
+      clone.rotation.x = Math.PI;
+    }
+    clone.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+    scene.add(clone);
+    coasterStack.push(clone);
+  }
+  applyColors();
+  // Re-apply active label textures to freshly cloned meshes
+  if (labelState.Red.tex)  applyLabelTexture('Red');
+  if (labelState.Blue.tex) applyLabelTexture('Blue');
+  updateFlipToggleUI();
+  updateSpinUI();
+};
+
+// ─── FLIP ANIMATION ──────────────────────────────────────────────────────────
+// Easing: smooth cubic in-out
+function easeInOut(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+// Duration constants (ms)
+const LIFT_DURATION  = 400;
+const FLIP_DURATION  = 600;
+const DROP_DURATION  = 400;
+const TOTAL_DURATION = LIFT_DURATION + FLIP_DURATION + DROP_DURATION;
+
+
+let flipAnimId  = null;
+let flipStartMs = null;
+
+window.flipTopCoaster = function() {
+  if (isAnimating) return;
+  if (stackCount === 0 || coasterStack.length === 0) return;
+
+  isAnimating = true;
+  if (spinRPM !== 0) window.setSpin(0); // stop spin during flip
+  updateFlipToggleUI();
+
+  const coaster = coasterStack[coasterStack.length - 1];
+
+  // Rest position Y (where it sits on the stack)
+  const restY    = coaster.position.y;
+  // Peak Y (lifted clear of the pin)
+  const peakY    = restY + (window.cThickness * 20 || 0.06);
+  // Start rotation (current, respects any prior flips)
+  const startRot = coaster.rotation.x;
+  // Target rotation: +PI or back to 0 depending on flip state
+  const targetRot = isFlipped ? startRot - Math.PI : startRot + Math.PI;
+
+  flipStartMs = null;
+
+  function step(now) {
+    if (!flipStartMs) flipStartMs = now;
+    const elapsed = now - flipStartMs;
+    const t = Math.min(elapsed / TOTAL_DURATION, 1);
+
+    // Phase 1: Lift  (0 → LIFT_DURATION)
+    // Phase 2: Flip  (LIFT_DURATION → LIFT_DURATION + FLIP_DURATION)
+    // Phase 3: Drop  (LIFT_DURATION + FLIP_DURATION → TOTAL_DURATION)
+
+    // Y position
+    const liftT = Math.min(elapsed / LIFT_DURATION, 1);
+    const dropT = Math.max(0, (elapsed - LIFT_DURATION - FLIP_DURATION) / DROP_DURATION);
+    if (elapsed < LIFT_DURATION) {
+      // Lifting
+      coaster.position.y = restY + easeInOut(liftT) * (peakY - restY);
+    } else if (elapsed < LIFT_DURATION + FLIP_DURATION) {
+      // At peak
+      coaster.position.y = peakY;
+    } else {
+      // Dropping
+      coaster.position.y = peakY - easeInOut(dropT) * (peakY - restY);
+    }
+
+    // X rotation (only during flip phase)
+    const flipElapsed = Math.max(0, elapsed - LIFT_DURATION);
+    const flipT = Math.min(flipElapsed / FLIP_DURATION, 1);
+    coaster.rotation.x = startRot + easeInOut(flipT) * (targetRot - startRot);
+
+    if (t < 1) {
+      flipAnimId = requestAnimationFrame(step);
+    } else {
+      // Snap to exact final values
+      coaster.position.y = restY;
+      coaster.rotation.x = targetRot;
+      isFlipped   = !isFlipped;
+      isAnimating = false;
+      flipAnimId  = null;
+      updateFlipToggleUI();
+    }
+  }
+
+  flipAnimId = requestAnimationFrame(step);
+};
+
+// Immediately cancel any running animation and snap the coaster back to rest
+function cancelFlip() {
+  if (flipAnimId) { cancelAnimationFrame(flipAnimId); flipAnimId = null; }
+  isAnimating = false;
+  isFlipped   = false;
+  if (coasterStack.length > 0) {
+    const coaster = coasterStack[coasterStack.length - 1];
+    coaster.rotation.x = 0;
+    coaster.position.y = window.pinBaseY + window.halfCThickness + ((coasterStack.length - 1) * window.cThickness * 1.02);
+  }
+}
+
+// ─── FLIP TOGGLE UI ──────────────────────────────────────────────────────────
+function updateFlipToggleUI() {
+  const toggle = document.getElementById('flip-toggle');
+  if (!toggle) return;
+  const disabled = stackCount === 0 || isAnimating;
+  toggle.disabled = disabled;
+  toggle.setAttribute('aria-disabled', disabled);
+  toggle.classList.toggle('flipped', isFlipped);
+  toggle.classList.toggle('animating', isAnimating);
+}
+
+// ─── QUANTITY CHIPS ───────────────────────────────────────────────────────────
+window.setQuantity = function(val) {
+  stackCount = val;
+  document.querySelectorAll('.qty-chip').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.dataset.qty) === val);
+  });
+  window.updateStack(val);
+};
+
+// ─── RESIZE + RENDER LOOP ────────────────────────────────────────────────────
 function resize() {
-  const w=wrap.clientWidth, h=wrap.clientHeight;
-  renderer.setSize(w,h);
-  camera.aspect=w/h;
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
 }
-window.addEventListener('resize',resize);
+window.addEventListener('resize', resize);
 resize();
 
 (function loop() {
   requestAnimationFrame(loop);
-  
   if (autoRot) targetSph.t += 0.0025;
-  
-  // Apply easing (lerp) to camera movements
+  // Spin single coaster at selected RPM
+  if (spinRPM !== 0 && stackCount === 1 && coasterStack.length === 1) {
+    // Reverse direction for Side A (top face) so it always appears clockwise
+    const spinDir = isFlipped ? 1 : -1;
+    coasterStack[0].rotation.y += spinDir * spinRPM * RPM_TO_RAD_PER_FRAME;
+  }
   currentSph.t += (targetSph.t - currentSph.t) * 0.08;
   currentSph.p += (targetSph.p - currentSph.p) * 0.08;
   currentSph.r += (targetSph.r - currentSph.r) * 0.08;
   currentTgt.lerp(targetTgt, 0.08);
-
   updateCam();
-
-  const targetBgColor = isDarkMode ? bgDarkColor : bgLightColor;
-  scene.background.lerp(targetBgColor, 0.05);
-
-  const targetShadowOpacity = THREE.MathUtils.clamp((camera.position.y - 0.01) * 10, 0, 0.22);
-  shadowPlane.material.opacity = THREE.MathUtils.lerp(shadowPlane.material.opacity, targetShadowOpacity, 0.1);
-
-  renderer.render(scene,camera);
+  scene.background.lerp(isDarkMode ? bgDarkColor : bgLightColor, 0.05);
+  shadowPlane.material.opacity = THREE.MathUtils.lerp(
+    shadowPlane.material.opacity, LIGHTING_CONFIG.shadow.opacity, 0.1);
+  renderer.render(scene, camera);
 })();
 
-// ─── UI ──────────────────────────────────────────────────────────────────────
+// ─── COLOR UI ────────────────────────────────────────────────────────────────
 window.setColor = function(mat, hex) {
   colors[mat] = hex;
-  const sw  = document.getElementById('swatch-'+mat);
-  const hx  = document.getElementById('hex-'+mat);
-  if (sw) sw.style.background = hex;
-  if (hx) hx.textContent = hex.toUpperCase();
+  syncColorUI(mat, hex);
   applyColors();
-  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
-}
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+};
 
+// ─── PRESETS ─────────────────────────────────────────────────────────────────
 const PRESETS = {
-  signal:   { Yellow:'#F5B82E', Blue:'#0F6FD7',   Feet:'#1a1a1a', Pin_Mount:'#1a1a1a' },
-  bauhaus:  { Yellow:'#D93636', Blue:'#1a1a1a',   Feet:'#F5B82E', Pin_Mount:'#F5B82E' },
-  dessau:   { Yellow:'#E4DCCF', Blue:'#003882',   Feet:'#1C1C1C', Pin_Mount:'#1C1C1C' },
-  forest:   { Yellow:'#4a7c59', Blue:'#e8dcc8',   Feet:'#2a2a1a', Pin_Mount:'#1e1e1e' },
-  cream:    { Yellow:'#f5e6c8', Blue:'#8b4513',   Feet:'#2d1b0e', Pin_Mount:'#1a0e06' },
-  chrome:   { Yellow:'#c8c8c8', Blue:'#D93636',   Feet:'#111111', Pin_Mount:'#333333' },
+  signal:  { Yellow: '#F5B82E', Side_Panel: '#0F6FD7', Feet: '#1a1a1a', Pin_Mount: '#1a1a1a', Coaster_Body: '#1A1A1A', Label_A: '#D93636', Label_B: '#0F6FD7' },
+  bauhaus: { Yellow: '#D93636', Side_Panel: '#1a1a1a', Feet: '#F5B82E', Pin_Mount: '#F5B82E', Coaster_Body: '#1A1A1A', Label_A: '#F5B82E', Label_B: '#D93636' },
+  highvis: { Yellow: '#C8C8C8', Side_Panel: '#BBFF29', Feet: '#000000', Pin_Mount: '#FE8616', Coaster_Body: '#1a1a1a', Label_A: '#FE8616', Label_B: '#BBFF29' },
+  forest:  { Yellow: '#4a7c59', Side_Panel: '#e8dcc8', Feet: '#2a2a1a', Pin_Mount: '#1e1e1e', Coaster_Body: '#1e1e1e', Label_A: '#4a7c59', Label_B: '#e8dcc8' },
+  cream:   { Yellow: '#f5e6c8', Side_Panel: '#8b4513', Feet: '#2d1b0e', Pin_Mount: '#1a0e06', Coaster_Body: '#2d1b0e', Label_A: '#8b4513', Label_B: '#f5e6c8' },
+  chrome:  { Yellow: '#c8c8c8', Side_Panel: '#D93636', Feet: '#111111', Pin_Mount: '#333333', Coaster_Body: '#111111', Label_A: '#c8c8c8', Label_B: '#D93636' },
 };
 
 window.applyPreset = function(name) {
   const p = PRESETS[name]; if (!p) return;
-  for (const [mat,hex] of Object.entries(p)) {
+  for (const [mat, hex] of Object.entries(p)) {
     colors[mat] = hex;
-    const sw  = document.getElementById('swatch-'+mat);
-    const hx  = document.getElementById('hex-'+mat);
-    const inp = document.getElementById('color-'+mat);
-    if (sw)  sw.style.background = hex;
-    if (hx)  hx.textContent = hex.toUpperCase();
-    if (inp) inp.value = hex;
+    syncColorUI(mat, hex);
   }
   applyColors();
-  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
-  const btn = document.getElementById('preset-'+name);
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('preset-' + name);
   if (btn) btn.classList.add('active');
-}
+};
 
-window.resetDefaults = function() { applyPreset('signal'); }
+// ─── RESET ───────────────────────────────────────────────────────────────────
+window.resetDefaults = function() {
+  // Reset all colors to defaults
+  for (const [key, hex] of Object.entries(DEFAULT_COLORS)) {
+    colors[key] = hex;
+    syncColorUI(key, hex);
+  }
+  applyColors();
 
+  // Reset preset highlight
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  const signalBtn = document.getElementById('preset-signal');
+  if (signalBtn) signalBtn.classList.add('active');
+
+  // Reset quantity to 4
+  window.setQuantity(4);
+
+  // Reset flip state
+  if (isAnimating) cancelFlip();
+  isFlipped = false;
+  updateFlipToggleUI();
+};
+
+// ─── SHARE ───────────────────────────────────────────────────────────────────
 window.shareConfig = function() {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(colors)) {
     params.set(key, value.replace('#', ''));
   }
-  
+  params.set('stack', stackCount);
   const newUrl = window.location.origin + window.location.pathname + '?' + params.toString();
   window.history.replaceState({}, '', newUrl);
-  
   navigator.clipboard.writeText(newUrl).then(() => {
-    const btn = document.querySelector('button[onclick="shareConfig()"]');
-    const originalText = btn.innerHTML;
+    const btns = document.querySelectorAll('.reset-btn');
+    const btn  = btns[btns.length - 1];
+    const orig = btn.innerHTML;
     btn.innerHTML = '✓ &nbsp;Copied Link';
-    setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+    setTimeout(() => { btn.innerHTML = orig; }, 2000);
   });
-}
+};
