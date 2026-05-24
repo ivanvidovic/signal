@@ -84,6 +84,14 @@ header {
   height: 100%;
 }
 
+.header-logo a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-decoration: none;
+}
+
 .header-logo img {
   height: 60px;
   width: auto;
@@ -240,13 +248,13 @@ canvas { width:100%!important; height:100%!important; display:block; }
   transition: background-color 0.5s ease;
 }
 
-.zone-list { display:flex; flex-direction:column; gap:8px; }
+.zone-list { display:flex; flex-direction:column; gap:5px; }
 
 .zone-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 9px;
+  padding: 5px 9px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--bg);
@@ -258,7 +266,7 @@ canvas { width:100%!important; height:100%!important; display:block; }
 }
 
 .zone-swatch {
-  width: 32px; height: 32px;
+  width: 28px; height: 28px;
   border-radius: 5px;
   border: 1px solid rgba(0,0,0,0.1);
   cursor: pointer;
@@ -276,7 +284,15 @@ canvas { width:100%!important; height:100%!important; display:block; }
 }
 
 .zone-info { flex:1; min-width:0; }
-.zone-name { font-size: 12.5px; font-weight:500; color:var(--ink); transition: color 0.5s ease; }
+.zone-name {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+  transition: color 0.5s ease;
+}
 .zone-material {
   font-family: 'Space Mono', monospace;
   font-size: 8px;
@@ -576,7 +592,22 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
 /* ─── RPM CHIPS ──────────────────────────────────────────────────────────────
    Inherit all qty-chip base styles; override active color to amber so
    spinning state is visually distinct from the quantity selection. */
-.rpm-chip.active {
+.preset-btn--randomize {
+  color: var(--muted);
+  gap: 6px;
+}
+.preset-btn--randomize:hover {
+  color: var(--ink);
+}
+.preset-btn--randomize svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.2s ease, transform 0.35s ease;
+}
+.preset-btn--randomize:hover svg {
+  opacity: 1;
+  transform: rotate(180deg);
+}
   background: #C8860A;
   border-color: #C8860A;
   color: #fff;

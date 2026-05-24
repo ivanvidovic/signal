@@ -464,7 +464,7 @@ function applyLightingConfig() {
 }
 
 // ─── ORBIT CONTROLS ──────────────────────────────────────────────────────────
-let drag = false, rDrag = false, px = 0, py = 0;
+let drag = false, px = 0, py = 0;
 let targetSph  = { t: -0.5, p: 1.05, r: 0.22 };
 let currentSph = { t: -0.5, p: 1.05, r: 0.22 };
 let targetTgt  = new THREE.Vector3(0, 0.01, 0);
@@ -483,7 +483,7 @@ function updateCam() {
 
 const cvs = renderer.domElement;
 cvs.addEventListener('mousedown', e => {
-  drag = true; rDrag = e.button === 2;
+  drag = true;
   px = e.clientX; py = e.clientY;
   autoRot = false; clearTimeout(rotTimer);
 });
@@ -495,15 +495,8 @@ window.addEventListener('mousemove', e => {
   if (!drag) return;
   const dx = e.clientX - px, dy = e.clientY - py;
   px = e.clientX; py = e.clientY;
-  if (rDrag) {
-    const r = new THREE.Vector3();
-    r.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
-    targetTgt.addScaledVector(r, -dx * 0.0003);
-    targetTgt.addScaledVector(camera.up, dy * 0.0003);
-  } else {
-    targetSph.t -= dx * 0.008;
-    targetSph.p = Math.max(0.01, Math.min(Math.PI - 0.01, targetSph.p - dy * 0.008));
-  }
+  targetSph.t -= dx * 0.008;
+  targetSph.p = Math.max(0.01, Math.min(Math.PI - 0.01, targetSph.p - dy * 0.008));
 });
 cvs.addEventListener('wheel', e => {
   e.preventDefault();
@@ -511,7 +504,6 @@ cvs.addEventListener('wheel', e => {
   autoRot = false; clearTimeout(rotTimer);
   rotTimer = setTimeout(() => { autoRot = true; }, 3000);
 }, { passive: false });
-cvs.addEventListener('contextmenu', e => e.preventDefault());
 
 // ─── MATERIAL PROPERTIES ─────────────────────────────────────────────────────
 // Tune roughness (0 = mirror, 1 = fully diffuse) and metalness (0–1) per
@@ -1154,11 +1146,14 @@ window.setColor = function(mat, hex) {
 // ─── PRESETS ─────────────────────────────────────────────────────────────────
 const PRESETS = {
   signal:  { Yellow: '#F5B82E', Side_Panel: '#0F6FD7', Feet: '#1a1a1a', Pin_Mount: '#1a1a1a', Coaster_Body: '#1A1A1A', Label_A: '#D93636', Label_B: '#0F6FD7' },
-  bauhaus: { Yellow: '#D93636', Side_Panel: '#1a1a1a', Feet: '#F5B82E', Pin_Mount: '#F5B82E', Coaster_Body: '#1A1A1A', Label_A: '#F5B82E', Label_B: '#D93636' },
+  bauhaus: { Yellow: '#F3E8CE', Side_Panel: '#C83737', Feet: '#262626', Pin_Mount: '#262626', Coaster_Body: '#1A1A1A', Label_A: '#0F6FD7', Label_B: '#F5B82E' },
   highvis: { Yellow: '#C8C8C8', Side_Panel: '#BBFF29', Feet: '#000000', Pin_Mount: '#FE8616', Coaster_Body: '#1a1a1a', Label_A: '#FE8616', Label_B: '#BBFF29' },
-  forest:  { Yellow: '#4a7c59', Side_Panel: '#e8dcc8', Feet: '#2a2a1a', Pin_Mount: '#1e1e1e', Coaster_Body: '#1e1e1e', Label_A: '#4a7c59', Label_B: '#e8dcc8' },
+  glacier: { Yellow: '#2B7FE0', Side_Panel: '#DDD5C8', Feet: '#0D0D0D', Pin_Mount: '#1A2535', Coaster_Body: '#1E1E1E', Label_A: '#6B8C7A', Label_B: '#E8C84A' },
   cream:   { Yellow: '#f5e6c8', Side_Panel: '#8b4513', Feet: '#2d1b0e', Pin_Mount: '#1a0e06', Coaster_Body: '#2d1b0e', Label_A: '#8b4513', Label_B: '#f5e6c8' },
-  chrome:  { Yellow: '#c8c8c8', Side_Panel: '#D93636', Feet: '#111111', Pin_Mount: '#333333', Coaster_Body: '#111111', Label_A: '#c8c8c8', Label_B: '#D93636' },
+  tide:    { Yellow: '#C4C8CC', Side_Panel: '#E05050', Feet: '#2A2D30', Pin_Mount: '#1A1A1A', Coaster_Body: '#1A1A1A', Label_A: '#7AA08C', Label_B: '#A8E820' },
+  mesa:    { Yellow: '#FF9A30', Side_Panel: '#8C96A0', Feet: '#2D1B0E', Pin_Mount: '#0A1628', Coaster_Body: '#0A1628', Label_A: '#4A7C59', Label_B: '#E84444' },
+  slate:    { Yellow: '#B8B0A8', Side_Panel: '#E8E0D5', Feet: '#2A2D30', Pin_Mount: '#3D4550', Coaster_Body: '#1A1A1A', Label_A: '#B5896A', Label_B: '#6B8C7A' },
+  cascadia: { Yellow: '#2D4A3E', Side_Panel: '#4A3728', Feet: '#1A2820', Pin_Mount: '#1A2820', Coaster_Body: '#1A1A1A', Label_A: '#C8860A', Label_B: '#7A9E8A' },
 };
 
 window.applyPreset = function(name) {
@@ -1173,7 +1168,109 @@ window.applyPreset = function(name) {
   if (btn) btn.classList.add('active');
 };
 
-// ─── RESET ───────────────────────────────────────────────────────────────────
+// ─── RANDOMIZE ───────────────────────────────────────────────────────────────
+// Slot-aware curated random. Each slot draws from a pool appropriate to its
+// role so results are always readable and intentional-feeling.
+window.randomizeColors = function() {
+  // Color pools by role
+  const POOL = {
+    // Chassis body — mids, lights, saturated solids. Never too dark (that's the record's job).
+    body: [
+      '#F5B82E','#E8C84A','#D4A843',  // ambers / yellows
+      '#C4C8CC','#A8B0B8','#8C96A0',  // blue-greys
+      '#D93636','#C42828','#E05050',  // reds
+      '#4A7C59','#3D6B4A','#5A8C6A',  // greens
+      '#f5e6c8','#EDD9A3','#E8D5B0',  // creams
+      '#c8c8c8','#B8B8B8','#D8D8D8',  // silvers
+      '#0F6FD7','#1A5FAA','#2B7FE0',  // blues
+      '#8B6A4A','#7A5A3A','#A07850',  // browns
+      '#BBFF29','#A8E820','#C8FF50',  // high-vis lime
+      '#FE8616','#E07010','#FF9A30',  // oranges
+      '#9B59B6','#7D3C98','#B07CC6',  // purples
+      '#E8E0D5','#DDD5C8','#F0EAE0',  // porcelains
+    ],
+    // Side panel — should contrast with body; bias toward different hue family
+    panel: [
+      '#0F6FD7','#1A5FAA','#2B7FE0',
+      '#D93636','#C42828','#E05050',
+      '#1a1a1a','#2a2a2a','#111111',
+      '#4A7C59','#3D6B4A','#5A8C6A',
+      '#E8E0D5','#DDD5C8','#F0EAE0',
+      '#F5B82E','#E8C84A','#D4A843',
+      '#BBFF29','#A8E820',
+      '#FE8616','#E07010',
+      '#C4C8CC','#8C96A0',
+      '#9B59B6','#7D3C98',
+      '#8B6A4A','#7A5A3A',
+      '#f5e6c8','#EDD9A3',
+    ],
+    // Darks — pin mount and feet. Always near-black or very deep tones.
+    dark: [
+      '#1a1a1a','#111111','#0d0d0d',
+      '#2A2D30','#1E2226','#3D4550',
+      '#2d1b0e','#1a0e06',
+      '#1e1e1e','#262626',
+      '#0a1628','#1a2535',
+      '#1a1200','#2a1e00',
+    ],
+    // Record vinyl — almost always very dark; occasional deep jewel tone
+    vinyl: [
+      '#1A1A1A','#111111','#0d0d0d',
+      '#1e1e1e','#222222',
+      '#0a1628',           // deep navy-black
+      '#1a0a0a',           // deep wine-black
+      '#0a1a0a',           // deep forest-black
+    ],
+    // Label accents — vivid or distinctive, works on dark vinyl
+    label: [
+      '#D93636','#C42828','#E84444',  // reds
+      '#0F6FD7','#1A5FAA','#3A8AE8',  // blues
+      '#F5B82E','#E8C84A','#FFCC00',  // yellows
+      '#BBFF29','#A8E820','#CCFF55',  // limes
+      '#FE8616','#FF9A30','#E07010',  // oranges
+      '#B5896A','#C49A7A','#A07858',  // clays
+      '#6B8C7A','#7AA08C','#5A7A68',  // sages
+      '#9B59B6','#B07CC6','#7D3C98',  // purples
+      '#E8E0D5','#F0EAE0',            // soft whites
+      '#4A7C59','#5A9A6E',            // greens
+      '#c8c8c8','#B0B8C0',            // silvers
+    ],
+  };
+
+  function pick(pool) {
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // Pick body first, then choose a panel color that differs enough
+  const bodyColor  = pick(POOL.body);
+  let   panelColor = pick(POOL.panel);
+  // Simple collision guard — retry once if panel matches body exactly
+  if (panelColor === bodyColor) panelColor = pick(POOL.panel);
+
+  // Pick two label colors that differ from each other
+  const labelA = pick(POOL.label);
+  let   labelB = pick(POOL.label);
+  if (labelB === labelA) labelB = pick(POOL.label);
+
+  const result = {
+    Yellow:       bodyColor,
+    Side_Panel:   panelColor,
+    Pin_Mount:    pick(POOL.dark),
+    Feet:         pick(POOL.dark),
+    Coaster_Body: pick(POOL.vinyl),
+    Label_A:      labelA,
+    Label_B:      labelB,
+  };
+
+  for (const [mat, hex] of Object.entries(result)) {
+    colors[mat] = hex;
+    syncColorUI(mat, hex);
+  }
+  applyColors();
+
+  // Deactivate all preset buttons — this isn't a named preset
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+};
 window.resetDefaults = function() {
   // Reset all colors to defaults
   for (const [key, hex] of Object.entries(DEFAULT_COLORS)) {

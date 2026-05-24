@@ -14,7 +14,9 @@
 
   <header>
     <div class="header-logo">
-      <img src="./images/Signal_Broadcasting_Co.svg" alt="Signal Broadcasting Co.">
+      <a href="./" aria-label="Signal Broadcasting Co. — Home">
+        <img src="./images/Signal_Broadcasting_Co.svg" alt="Signal Broadcasting Co.">
+      </a>
     </div>
   </header>
 
@@ -61,8 +63,7 @@
             <input type="color" id="color-Coaster_Body" value="#1A1A1A" oninput="setColor('Coaster_Body',this.value)">
           </div>
           <div class="zone-info">
-            <div class="zone-name">Record Body</div>
-            <div class="zone-material">Vinyl base</div>
+            <div class="zone-name">Record</div>
           </div>
           <div class="zone-hex" id="hex-Coaster_Body">#1A1A1A</div>
         </div>
@@ -73,7 +74,6 @@
           </div>
           <div class="zone-info">
             <div class="zone-name">Side A</div>
-            <div class="zone-material">Top graphic</div>
           </div>
           <div class="zone-hex" id="hex-Label_A">#D93636</div>
           <label class="label-upload-btn" id="upload-btn-Label_A" title="Upload image">
@@ -91,7 +91,6 @@
           </div>
           <div class="zone-info">
             <div class="zone-name">Side B</div>
-            <div class="zone-material">Bottom graphic</div>
           </div>
           <div class="zone-hex" id="hex-Label_B">#0F6FD7</div>
           <label class="label-upload-btn" id="upload-btn-Label_B" title="Upload image">
@@ -115,8 +114,7 @@
             <input type="color" id="color-Yellow" value="#C8C8C8" oninput="setColor('Yellow',this.value)">
           </div>
           <div class="zone-info">
-            <div class="zone-name">Body</div>
-            <div class="zone-material">Main body</div>
+            <div class="zone-name">Main Body</div>
           </div>
           <div class="zone-hex" id="hex-Yellow">#C8C8C8</div>
         </div>
@@ -126,8 +124,7 @@
             <input type="color" id="color-Side_Panel" value="#0F6FD7" oninput="setColor('Side_Panel',this.value)">
           </div>
           <div class="zone-info">
-            <div class="zone-name">Panel</div>
-            <div class="zone-material">Side panel</div>
+            <div class="zone-name">Side Panel</div>
           </div>
           <div class="zone-hex" id="hex-Side_Panel">#0F6FD7</div>
         </div>
@@ -138,7 +135,6 @@
           </div>
           <div class="zone-info">
             <div class="zone-name">Pin Mount</div>
-            <div class="zone-material">Spindle housing</div>
           </div>
           <div class="zone-hex" id="hex-Pin_Mount">#FE8616</div>
         </div>
@@ -149,7 +145,6 @@
           </div>
           <div class="zone-info">
             <div class="zone-name">Feet</div>
-            <div class="zone-material">Rubber feet × 4</div>
           </div>
           <div class="zone-hex" id="hex-Feet">#000000</div>
         </div>
@@ -172,9 +167,9 @@
 
         <button class="preset-btn" onclick="applyPreset('bauhaus')" id="preset-bauhaus">
           <div class="preset-dots">
-            <div class="preset-dot" style="background:#D93636;"></div>
-            <div class="preset-dot" style="background:#1a1a1a;"></div>
-            <div class="preset-dot" style="background:#F5B82E;"></div>
+            <div class="preset-dot" style="background:#F3E8CE;"></div>
+            <div class="preset-dot" style="background:#C83737;"></div>
+            <div class="preset-dot" style="background:#1A2535;"></div>
           </div>
           <span class="preset-name">Bauhaus</span>
         </button>
@@ -188,13 +183,13 @@
           <span class="preset-name">High-Vis</span>
         </button>
 
-        <button class="preset-btn" onclick="applyPreset('forest')" id="preset-forest">
+        <button class="preset-btn" onclick="applyPreset('glacier')" id="preset-glacier">
           <div class="preset-dots">
-            <div class="preset-dot" style="background:#4a7c59;"></div>
-            <div class="preset-dot" style="background:#e8dcc8;"></div>
-            <div class="preset-dot" style="background:#1e1e1e;"></div>
+            <div class="preset-dot" style="background:#2B7FE0;"></div>
+            <div class="preset-dot" style="background:#DDD5C8;"></div>
+            <div class="preset-dot" style="background:#E8C84A;"></div>
           </div>
-          <span class="preset-name">Forest</span>
+          <span class="preset-name">Glacier</span>
         </button>
 
         <button class="preset-btn" onclick="applyPreset('cream')" id="preset-cream">
@@ -206,13 +201,45 @@
           <span class="preset-name">Cream</span>
         </button>
 
-        <button class="preset-btn" onclick="applyPreset('chrome')" id="preset-chrome">
+        <button class="preset-btn" onclick="applyPreset('cascadia')" id="preset-cascadia">
           <div class="preset-dots">
-            <div class="preset-dot" style="background:#c8c8c8;"></div>
-            <div class="preset-dot" style="background:#D93636;"></div>
-            <div class="preset-dot" style="background:#111;"></div>
+            <div class="preset-dot" style="background:#2D4A3E;"></div>
+            <div class="preset-dot" style="background:#4A3728;"></div>
+            <div class="preset-dot" style="background:#C8860A;"></div>
           </div>
-          <span class="preset-name">Chrome</span>
+          <span class="preset-name">Cascadia</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('tide')" id="preset-tide">
+          <div class="preset-dots">
+            <div class="preset-dot" style="background:#C4C8CC;"></div>
+            <div class="preset-dot" style="background:#E05050;"></div>
+            <div class="preset-dot" style="background:#7AA08C;"></div>
+          </div>
+          <span class="preset-name">Tide</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('mesa')" id="preset-mesa">
+          <div class="preset-dots">
+            <div class="preset-dot" style="background:#FF9A30;"></div>
+            <div class="preset-dot" style="background:#8C96A0;"></div>
+            <div class="preset-dot" style="background:#4A7C59;"></div>
+          </div>
+          <span class="preset-name">Mesa</span>
+        </button>
+
+        <button class="preset-btn" onclick="applyPreset('slate')" id="preset-slate">
+          <div class="preset-dots">
+            <div class="preset-dot" style="background:#B8B0A8;"></div>
+            <div class="preset-dot" style="background:#E8E0D5;"></div>
+            <div class="preset-dot" style="background:#3D4550;"></div>
+          </div>
+          <span class="preset-name">Slate</span>
+        </button>
+
+        <button class="preset-btn preset-btn--randomize" onclick="randomizeColors()" id="preset-randomize">
+          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+          <span class="preset-name">Randomize</span>
         </button>
 
       </div>
@@ -243,8 +270,6 @@
     <span>Drag to rotate</span>
     <span class="hint-sep">·</span>
     <span>Scroll to zoom</span>
-    <span class="hint-sep">·</span>
-    <span>Right-drag to pan</span>
   </div>
 </div>
 
