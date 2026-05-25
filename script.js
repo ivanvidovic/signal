@@ -1493,8 +1493,22 @@ window.shareConfig = function() {
 
 // Drawer toggle
 window.toggleDrawer = function() {
-  document.getElementById('left-column').classList.toggle('drawer-open');
+  const col = document.getElementById('left-column');
+  col.classList.toggle('drawer-open');
+  // Shift the look-at target downward when drawer is open so the model
+  // sits in the visible upper portion of the screen above the drawer.
+  if (col.classList.contains('drawer-open')) {
+    targetTgt.y = -0.06;
+  } else {
+    targetTgt.y = 0.01;
+  }
 };
+
+// On mobile, back the camera out so the full model is visible on load
+if (window.innerWidth <= 768) {
+  targetSph.r  = 0.5;
+  currentSph.r = 0.5;
+}
 
 // Touch controls — single finger rotate, two finger pinch zoom
 (function() {
@@ -1521,7 +1535,16 @@ window.toggleDrawer = function() {
   }, { passive: true });
 
   vp.addEventListener('touchmove', function(e) {
-    if (e.touches.length === 1) {
+    if (e.touches.length === 2) {
+      // Prevent browser default pinch-to-zoom and text selection
+      e.preventDefault();
+      if (lastPinch !== null) {
+        const dist  = pinchDist(e.touches);
+        const delta = lastPinch - dist;
+        targetSph.r = Math.max(0.08, Math.min(0.6, targetSph.r + delta * 0.0008));
+        lastPinch   = dist;
+      }
+    } else if (e.touches.length === 1) {
       const dx = e.touches[0].clientX - t1x;
       const dy = e.touches[0].clientY - t1y;
       t1x = e.touches[0].clientX;
@@ -1529,13 +1552,7 @@ window.toggleDrawer = function() {
       targetSph.t -= dx * 0.008;
       targetSph.p = Math.max(0.01, Math.min(Math.PI - 0.01, targetSph.p - dy * 0.008));
     }
-    if (e.touches.length === 2 && lastPinch !== null) {
-      const dist  = pinchDist(e.touches);
-      const delta = lastPinch - dist;
-      targetSph.r = Math.max(0.08, Math.min(0.6, targetSph.r + delta * 0.0008));
-      lastPinch   = dist;
-    }
-  }, { passive: true });
+  }, { passive: false });
 
   vp.addEventListener('touchend', function(e) {
     if (e.touches.length < 2) lastPinch = null;
