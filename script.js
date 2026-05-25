@@ -468,6 +468,8 @@ let currentSph = { t: -0.5, p: 1.05, r: 0.22 };
 let targetTgt  = new THREE.Vector3(0, 0.01, 0);
 let currentTgt = new THREE.Vector3(0, 0.01, 0);
 let autoRot = true, rotTimer = null;
+let targetViewOffsetY  = 0;
+let currentViewOffsetY = 0;
 
 function updateCam() {
   const { t, p, r } = currentSph;
@@ -1301,6 +1303,19 @@ resize();
   currentSph.p += (targetSph.p - currentSph.p) * 0.08;
   currentSph.r += (targetSph.r - currentSph.r) * 0.08;
   currentTgt.lerp(targetTgt, 0.08);
+  currentViewOffsetY += (targetViewOffsetY - currentViewOffsetY) * 0.08;
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  const dpr = window.devicePixelRatio || 1;
+  if (currentViewOffsetY > 0.001) {
+    camera.setViewOffset(
+      w * dpr, h * dpr,
+      0, Math.round(currentViewOffsetY * h * dpr),
+      w * dpr, h * dpr
+    );
+  } else {
+    camera.clearViewOffset();
+  }
   updateCam();
   scene.background.lerp(isDarkMode ? bgDarkColor : bgLightColor, 0.05);
   shadowPlane.material.opacity = THREE.MathUtils.lerp(
@@ -1495,13 +1510,7 @@ window.shareConfig = function() {
 window.toggleDrawer = function() {
   const col = document.getElementById('left-column');
   col.classList.toggle('drawer-open');
-  // Shift the look-at target downward when drawer is open so the model
-  // sits in the visible upper portion of the screen above the drawer.
-  if (col.classList.contains('drawer-open')) {
-    targetTgt.y = -0.06;
-  } else {
-    targetTgt.y = 0.01;
-  }
+  targetViewOffsetY = col.classList.contains('drawer-open') ? 0.25 : 0;
 };
 
 // On mobile, back the camera out so the full model is visible on load
