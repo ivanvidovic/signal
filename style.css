@@ -100,34 +100,6 @@ header {
   transition: filter 0.5s ease, opacity 0.5s ease;
 }
 
-.header-tagline {
-  padding-left: 22px;
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.22em;
-  color: rgba(255,255,255,0.28);
-  text-transform: uppercase;
-  flex: 1;
-}
-
-.theme-toggle {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.2);
-  color: #fff;
-  cursor: pointer;
-  padding: 8px 10px;
-  border-radius: 4px;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.theme-toggle:hover {
-  background: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.4);
-}
-
 #viewport {
   flex: 1;
   position: relative;
@@ -204,7 +176,6 @@ canvas { width:100%!important; height:100%!important; display:block; }
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  border-right: 0px solid var(--border);
   z-index: 10;
   transition: border-color 0.5s ease;
 }
@@ -533,30 +504,6 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   from { border-color: var(--border); }
   to   { border-color: var(--blue); }
 }
-/* Theme toggle in sidebar context */
-.sidebar-theme-toggle {
-  width: 100%;
-  border-color: var(--border);
-  color: var(--muted);
-  padding: 10px;
-  border-radius: 6px;
-  gap: 8px;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.sidebar-theme-toggle:hover {
-  background: var(--btn-hover);
-  border-color: var(--muted);
-  color: var(--ink);
-}
-
-.theme-toggle-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-}
 /* ─── LABEL IMAGE UPLOAD ──────────────────────────────────────────────────── */
 .label-upload-btn,
 .label-clear-btn {
@@ -613,9 +560,7 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   cursor: pointer;
 }
 
-/* ─── RPM CHIPS ──────────────────────────────────────────────────────────────
-   Inherit all qty-chip base styles; override active color to amber so
-   spinning state is visually distinct from the quantity selection. */
+/* ─── RANDOMIZE BUTTON ───────────────────────────────────────────────────── */
 .preset-btn--randomize {
   color: var(--muted);
   gap: 6px;
@@ -641,4 +586,90 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   border-color: #C8860A;
   color: #fff;
   font-weight: 700;
+}
+/* ─── MOBILE ─────────────────────────────────────────────────────────────────
+   The existing #left-column becomes a bottom drawer on mobile.
+   No cloning, no duplicate IDs — same element, same JS targets. */
+
+#drawer-handle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+
+  /* Canvas fills the full screen */
+  #viewport {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 0;
+  }
+
+  /* Hide desktop header — logo lives in the sidebar below */
+  header {
+    display: none;
+  }
+
+  /* Drawer: fixed to bottom, peeks 48px, slides up on .drawer-open */
+  #left-column {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 80vh;
+    z-index: 100;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+    transform: translateY(calc(100% - 48px));
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+  }
+
+  #left-column.drawer-open {
+    transform: translateY(0);
+  }
+
+  /* Sidebar scrolls inside the drawer */
+  #sidebar {
+    width: 100%;
+    height: calc(80vh - 48px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 0;
+  }
+  #sidebar::-webkit-scrollbar { display: none; }
+
+  /* Show the drag handle only on mobile */
+  #drawer-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 48px;
+    width: 100%;
+    background: var(--panel);
+    border-radius: 16px 16px 0 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+    transition: background-color 0.5s ease;
+  }
+
+  .drawer-bar {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    transition: background 0.2s ease;
+  }
+
+  #drawer-handle:active .drawer-bar {
+    background: var(--muted);
+  }
+
+  /* Slightly larger tap targets for chips */
+  .qty-chip {
+    padding: 9px 2px;
+  }
 }

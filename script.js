@@ -317,14 +317,12 @@ const vinylNormalMap = buildVinylNormalMap();
 // ─── THEME TOGGLE ────────────────────────────────────────────────────────────
 let isDarkMode = false;
 const themeBtn = document.getElementById('themeBtn');
-themeBtn.addEventListener('click', () => {
+
+window.toggleDarkMode = function() {
   isDarkMode = !isDarkMode;
   document.body.classList.toggle('dark-mode', isDarkMode);
-  themeBtn.querySelector('.icon-moon').style.display = isDarkMode ? 'none'  : 'block';
-  themeBtn.querySelector('.icon-sun').style.display  = isDarkMode ? 'block' : 'none';
-  const lbl = themeBtn.querySelector('.theme-toggle-label');
-  if (lbl) lbl.textContent = isDarkMode ? 'Light Mode' : 'Dark Mode';
-});
+  themeBtn.textContent = isDarkMode ? '○ \u00a0Light Mode' : '☾ \u00a0Dark Mode';
+};
 
 // ─── LIGHTING CONFIG ─────────────────────────────────────────────────────────
 // All scene lighting in one place. Edit values here, then call
@@ -893,30 +891,39 @@ async function fadeInTrack(theme, side, rpm) {
 }
 
 // Main entry point — call whenever spin state, theme, or side changes
+let isSyncing = false;
+
 async function syncAudio() {
-  const shouldPlay = (stackCount === 1 && spinRPM !== 0);
+  if (isSyncing) return;
+  isSyncing = true;
 
-  if (!shouldPlay) {
-    fadeOutCurrent();
-    return;
-  }
+  try {
+    const shouldPlay = (stackCount === 1 && spinRPM !== 0);
 
-  const side = isFlipped ? 'b' : 'a';
-
-  // If already playing the right track, just update playback rate
-  if (currentSource) {
-    const wantedKey = trackKey(activeThemeName, side);
-    const playingKey = currentSource._trackKey;
-    if (playingKey === wantedKey) {
-      currentSource.playbackRate.value = rpmToPlaybackRate(spinRPM);
+    if (!shouldPlay) {
+      fadeOutCurrent();
       return;
     }
-  }
 
-  // Otherwise crossfade to new track
-  fadeOutCurrent();
-  await fadeInTrack(activeThemeName, side, spinRPM);
-  if (currentSource) currentSource._trackKey = trackKey(activeThemeName, side);
+    const side = isFlipped ? 'b' : 'a';
+
+    // If already playing the right track, just update playback rate
+    if (currentSource) {
+      const wantedKey  = trackKey(activeThemeName, side);
+      const playingKey = currentSource._trackKey;
+      if (playingKey === wantedKey) {
+        currentSource.playbackRate.value = rpmToPlaybackRate(spinRPM);
+        return;
+      }
+    }
+
+    // Crossfade to new track
+    fadeOutCurrent();
+    await fadeInTrack(activeThemeName, side, spinRPM);
+    if (currentSource) currentSource._trackKey = trackKey(activeThemeName, side);
+  } finally {
+    isSyncing = false;
+  }
 }
 
 function setVolume(val) {
@@ -1482,3 +1489,56 @@ window.shareConfig = function() {
     setTimeout(() => { btn.innerHTML = orig; }, 2000);
   });
 };
+// ─── MOBILE ───────────────────────────────────────────────────────────────────
+
+// Drawer toggle
+window.toggleDrawer = function() {
+  document.getElementById('left-column').classList.toggle('drawer-open');
+};
+
+// Touch controls — single finger rotate, two finger pinch zoom
+(function() {
+  const vp = document.getElementById('viewport');
+  let t1x = 0, t1y = 0;
+  let lastPinch = null;
+
+  function pinchDist(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  vp.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 1) {
+      t1x = e.touches[0].clientX;
+      t1y = e.touches[0].clientY;
+      autoRot = false;
+      clearTimeout(rotTimer);
+    }
+    if (e.touches.length === 2) {
+      lastPinch = pinchDist(e.touches);
+    }
+  }, { passive: true });
+
+  vp.addEventListener('touchmove', function(e) {
+    if (e.touches.length === 1) {
+      const dx = e.touches[0].clientX - t1x;
+      const dy = e.touches[0].clientY - t1y;
+      t1x = e.touches[0].clientX;
+      t1y = e.touches[0].clientY;
+      targetSph.t -= dx * 0.008;
+      targetSph.p = Math.max(0.01, Math.min(Math.PI - 0.01, targetSph.p - dy * 0.008));
+    }
+    if (e.touches.length === 2 && lastPinch !== null) {
+      const dist  = pinchDist(e.touches);
+      const delta = lastPinch - dist;
+      targetSph.r = Math.max(0.08, Math.min(0.6, targetSph.r + delta * 0.0008));
+      lastPinch   = dist;
+    }
+  }, { passive: true });
+
+  vp.addEventListener('touchend', function(e) {
+    if (e.touches.length < 2) lastPinch = null;
+    rotTimer = setTimeout(function() { autoRot = true; }, 4000);
+  }, { passive: true });
+})();
