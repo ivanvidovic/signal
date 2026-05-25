@@ -632,6 +632,11 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   opacity: 1;
   transform: rotate(180deg);
 }
+
+/* ─── RPM CHIPS ──────────────────────────────────────────────────────────────
+   Inherit all qty-chip base styles; override active color to amber so
+   spinning state is visually distinct from the quantity selection. */
+.rpm-chip.active {
   background: #C8860A;
   border-color: #C8860A;
   color: #fff;

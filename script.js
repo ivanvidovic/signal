@@ -1320,6 +1320,10 @@ const PRESETS = {
   mesa:    { Yellow: '#FF9A30', Side_Panel: '#8C96A0', Feet: '#2D1B0E', Pin_Mount: '#0A1628', Coaster_Body: '#0A1628', Label_A: '#4A7C59', Label_B: '#E84444' },
   slate:    { Yellow: '#B8B0A8', Side_Panel: '#E8E0D5', Feet: '#2A2D30', Pin_Mount: '#3D4550', Coaster_Body: '#1A1A1A', Label_A: '#B5896A', Label_B: '#6B8C7A' },
   cascadia: { Yellow: '#2D4A3E', Side_Panel: '#4A3728', Feet: '#1A2820', Pin_Mount: '#1A2820', Coaster_Body: '#1A1A1A', Label_A: '#C8860A', Label_B: '#7A9E8A' },
+  mango:    { Yellow: '#FF6B00', Side_Panel: '#00C896', Feet: '#1A0A00', Pin_Mount: '#1A0A00', Coaster_Body: '#0A0A0A', Label_A: '#FFE000', Label_B: '#FF1493' },
+  crate:    { Yellow: '#6B1A2A', Side_Panel: '#C8860A', Feet: '#1A0A0E', Pin_Mount: '#1A0A0E', Coaster_Body: '#1A0A0E', Label_A: '#F5E6C8', Label_B: '#C8860A' },
+  grid:     { Yellow: '#3A3530', Side_Panel: '#1A1510', Feet: '#0D0D0D', Pin_Mount: '#0D0D0D', Coaster_Body: '#0D0D0D', Label_A: '#39FF14', Label_B: '#7B2FBE' },
+  prism:    { Yellow: '#4B0082', Side_Panel: '#FF6B35', Feet: '#1A0A2E', Pin_Mount: '#1A0A2E', Coaster_Body: '#1A0A2E', Label_A: '#FFD700', Label_B: '#FF1493' },
 };
 
 window.applyPreset = function(name) {
