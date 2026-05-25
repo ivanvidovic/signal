@@ -676,3 +676,23 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     padding: 9px 2px;
   }
 }
+/* ─── DRAWER ARROW HINT ──────────────────────────────────────────────────── */
+#drawer-arrow {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  #drawer-handle {
+    position: relative;
+  }
+
+  #drawer-arrow {
+    display: block;
+    color: var(--border);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  #left-column.drawer-open #drawer-arrow {
+    transform: rotate(180deg);
+  }
+}
