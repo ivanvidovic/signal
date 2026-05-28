@@ -589,13 +589,14 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
 }
 /* ─── MOBILE ─────────────────────────────────────────────────────────────────
    The existing #left-column becomes a bottom drawer on mobile.
-   No cloning, no duplicate IDs — same element, same JS targets. */
+   Applies to: portrait ≤768px  OR  landscape with short viewport (phones). */
 
 #drawer-handle {
   display: none;
 }
 
-@media (max-width: 768px) {
+/* Shared mobile drawer styles — portrait phones and landscape phones */
+@media (max-width: 768px), (max-height: 500px) and (orientation: landscape) and (hover: none) {
 
   /* Canvas fills the full screen */
   #viewport {
@@ -621,13 +622,16 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     left: 0;
     right: 0;
     width: 100%;
-    height: 55vh;
+    /* landscape gets a taller drawer since viewport is short */
+    height: 75vh;
     z-index: 100;
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
     transform: translateY(calc(100% - 48px));
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
+    /* Keep drawer above iOS home-indicator / Siri shortcut bar */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   #left-column.drawer-open {
@@ -637,7 +641,7 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   /* Sidebar scrolls inside the drawer */
   #sidebar {
     width: 100%;
-    height: calc(55vh - 48px);
+    height: calc(75vh - 48px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     border-radius: 0;
@@ -657,6 +661,11 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     flex-shrink: 0;
     border-bottom: 1px solid var(--border);
     transition: background-color 0.5s ease;
+    /* ensure handle is always tappable, not obscured by system bars */
+    position: relative;
+    z-index: 101;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   .drawer-bar {
@@ -676,12 +685,23 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     padding: 9px 2px;
   }
 }
+
+/* Portrait-only: use 55vh drawer height (more room available) */
+@media (max-width: 768px) and (orientation: portrait) {
+  #left-column {
+    height: 55vh;
+  }
+  #sidebar {
+    height: calc(55vh - 48px);
+  }
+}
+
 /* ─── DRAWER ARROW HINT ──────────────────────────────────────────────────── */
 #drawer-arrow {
   display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 500px) and (orientation: landscape) and (hover: none) {
   #drawer-handle {
     position: relative;
   }

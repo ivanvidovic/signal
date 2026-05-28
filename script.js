@@ -1514,7 +1514,10 @@ window.toggleDrawer = function() {
 };
 
 // On mobile, back the camera out so the full model is visible on load
-if (window.innerWidth <= 768) {
+// Matches CSS: portrait ≤768px OR landscape with short viewport (touch phones)
+const isMobileDevice = window.innerWidth <= 768 ||
+  (window.innerHeight <= 500 && window.matchMedia('(orientation: landscape) and (hover: none)').matches);
+if (isMobileDevice) {
   targetSph.r  = 0.5;
   currentSph.r = 0.5;
 }
