@@ -3,9 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <!-- theme-color: system auto-switches light/dark. JS overwrites content on manual toggle. -->
+  <meta name="theme-color" content="#EDE7DF" media="(prefers-color-scheme: light)" id="meta-theme-light">
+  <meta name="theme-color" content="#1A1A1A" media="(prefers-color-scheme: dark)"  id="meta-theme-dark">
+  <!-- Single tag JS updates for manual toggle -->
   <meta name="theme-color" content="#EDE7DF" id="meta-theme-color">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" id="meta-status-bar">
+  <!-- black-translucent lets status bar overlay the app and respects theme-color tinting -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Signal Broadcasting Co.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">

@@ -322,11 +322,12 @@ function applyDarkMode(dark) {
   isDarkMode = dark;
   document.body.classList.toggle('dark-mode', isDarkMode);
   themeBtn.textContent = isDarkMode ? '○ \u00a0Light Mode' : '☾ \u00a0Dark Mode';
-  // Sync the browser/PWA status-bar color to match the panel background
-  const metaTheme = document.getElementById('meta-theme-color');
-  const metaStatus = document.getElementById('meta-status-bar');
-  if (metaTheme) metaTheme.setAttribute('content', isDarkMode ? '#1A1A1A' : '#EDE7DF');
-  if (metaStatus) metaStatus.setAttribute('content', isDarkMode ? 'black-translucent' : 'default');
+  // Update all three theme-color tags so Chrome/Safari PWA status bar matches
+  const color = isDarkMode ? '#1A1A1A' : '#EDE7DF';
+  ['meta-theme-color', 'meta-theme-light', 'meta-theme-dark'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.setAttribute('content', color);
+  });
   try { localStorage.setItem('darkMode', isDarkMode ? '1' : '0'); } catch(e) {}
 }
 
