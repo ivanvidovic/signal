@@ -615,7 +615,10 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     display: none;
   }
 
-  /* Drawer: fixed to bottom, peeks 48px, slides up on .drawer-open */
+  /* Drawer: fixed to bottom, peeks 48px + safe-area, slides up on .drawer-open.
+     The peek translateY must include env(safe-area-inset-bottom) so the handle
+     always sits above the iOS home indicator / Siri shortcut bar in both
+     Safari and standalone (Add to Home Screen) mode. */
   #left-column {
     position: fixed;
     bottom: 0;
@@ -627,10 +630,11 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     z-index: 100;
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
-    transform: translateY(calc(100% - 48px));
+    /* Peek = handle height (48px) + bottom safe area so handle clears system bar */
+    transform: translateY(calc(100% - 48px - env(safe-area-inset-bottom, 0px)));
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
-    /* Keep drawer above iOS home-indicator / Siri shortcut bar */
+    /* Pad the interior so content isn't under the system bar when open */
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
@@ -690,6 +694,7 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
 @media (max-width: 768px) and (orientation: portrait) {
   #left-column {
     height: 55vh;
+    transform: translateY(calc(100% - 48px - env(safe-area-inset-bottom, 0px)));
   }
   #sidebar {
     height: calc(55vh - 48px);
