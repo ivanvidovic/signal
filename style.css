@@ -673,7 +673,9 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
 }
 
 /* ── LANDSCAPE PHONE: side-by-side panel ─────────────────────────────────── */
-@media (max-height: 500px) and (orientation: landscape) and (hover: none) {
+/* max-width:932px covers all phones in landscape (iPhone Pro Max = 932px wide).
+   Excludes iPads (1024px+). No hover/pointer checks — too unreliable on iOS. */
+@media (orientation: landscape) and (max-width: 932px) {
 
   /* Body switches to row layout — sidebar left, canvas right */
   body {

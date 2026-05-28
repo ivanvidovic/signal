@@ -1526,8 +1526,8 @@ window.shareConfig = function() {
 
 // Drawer toggle — only active in portrait mobile (landscape uses side-by-side panel)
 window.toggleDrawer = function() {
-  const isLandscape = window.innerHeight <= 500 &&
-    window.matchMedia('(orientation: landscape) and (hover: none)').matches;
+  const isLandscape = window.innerWidth <= 932 &&
+    window.matchMedia('(orientation: landscape)').matches;
   if (isLandscape) return;
   const col = document.getElementById('left-column');
   col.classList.toggle('drawer-open');
@@ -1537,8 +1537,8 @@ window.toggleDrawer = function() {
 // On mobile, adjust camera zoom to fill the frame well.
 // Portrait: zoom out for the bottom drawer layout.
 // Landscape phone: sidebar takes 260px, remaining viewport is wider — zoom in closer.
-const isLandscapePhone = window.innerHeight <= 500 &&
-  window.matchMedia('(orientation: landscape) and (hover: none)').matches;
+const isLandscapePhone = window.innerWidth <= 932 &&
+  window.matchMedia('(orientation: landscape)').matches;
 const isPortraitMobile = window.innerWidth <= 768 &&
   window.matchMedia('(orientation: portrait)').matches;
 
