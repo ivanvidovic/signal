@@ -1551,8 +1551,16 @@ if (isLandscapePhone) {
   currentSph.r = 0.5;
 }
 
-// On orientation change, re-check zoom and force a renderer resize
+// On orientation change, reset camera offset (drawer offset doesn't apply in landscape),
+// close the drawer if open, then re-zoom and resize.
 window.addEventListener('orientationchange', function() {
+  // Reset view offset immediately so model doesn't sit high
+  targetViewOffsetY  = 0;
+  currentViewOffsetY = 0;
+  // Close drawer in case it was open in portrait
+  const col = document.getElementById('left-column');
+  col.classList.remove('drawer-open');
+
   setTimeout(function() {
     resize();
     const nowLandscape = window.innerWidth <= 932 &&
@@ -1564,7 +1572,7 @@ window.addEventListener('orientationchange', function() {
       targetSph.r  = 0.5;
       currentSph.r = 0.5;
     }
-  }, 300); // small delay lets the browser finish layout before measuring
+  }, 300);
 });
 
 // Touch controls — single finger rotate, two finger pinch zoom

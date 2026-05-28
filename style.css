@@ -593,7 +593,10 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   display: none;
 }
 
-/* ── PORTRAIT: bottom drawer ─────────────────────────────────────────────── */
+/* Hide drag/zoom hints on all mobile — not needed on touch */
+@media (max-width: 932px) {
+  .viewport-hint { display: none; }
+}
 @media (max-width: 768px) and (orientation: portrait) {
 
   #viewport {
@@ -744,12 +747,4 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   }
 
   .qty-chip { padding: 7px 2px; }
-
-  /* Fix hint — re-center within the viewport (which is now 50% wide) */
-  .viewport-hint {
-    left: 50%;
-    transform: translateX(-50%);
-    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
-    right: auto;
-  }
 }
