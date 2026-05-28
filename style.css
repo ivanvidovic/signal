@@ -40,6 +40,11 @@ body.dark-mode .header-logo img {
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--bg);
   color: var(--ink);
@@ -53,14 +58,7 @@ body {
 }
 
 body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: radial-gradient(circle, var(--dot-pattern) 1px, transparent 1px);
-  background-size: 32px 32px;
-  pointer-events: none;
-  z-index: 0;
-  transition: background-image 0.5s ease;
+  display: none;
 }
 
 header {
@@ -674,20 +672,20 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
 
 /* ── LANDSCAPE PHONE: side-by-side panel ─────────────────────────────────── */
 /* max-width:932px covers all phones in landscape (iPhone Pro Max = 932px wide).
-   Excludes iPads (1024px+). No hover/pointer checks — too unreliable on iOS. */
+   Excludes iPads (1024px+). */
 @media (orientation: landscape) and (max-width: 932px) {
 
-  /* Body switches to row layout — sidebar left, canvas right */
   body {
     flex-direction: row;
     overflow: hidden;
   }
 
-  /* Sidebar panel: fixed width, full height, scrollable, left-safe-area inset */
+  /* Left panel: exactly 50% width, no horizontal overflow */
   #left-column {
     position: relative;
-    width: 260px;
-    min-width: 260px;
+    width: 50%;
+    min-width: 0;
+    max-width: 50%;
     height: 100vh;
     flex-shrink: 0;
     z-index: 10;
@@ -699,53 +697,59 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     box-shadow: none;
     transform: none !important;
     transition: none;
-    /* Respect left notch / safe area on landscape */
     padding-left: env(safe-area-inset-left, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* Header shows in landscape for branding */
+  /* Header: compact */
   header {
     display: flex;
-    height: 56px;
+    height: 48px;
     flex-shrink: 0;
+    padding: 0 14px;
   }
 
-  .header-logo img { height: 36px; }
+  .header-logo img { height: 28px; }
 
-  /* Sidebar fills remaining height and scrolls */
+  /* Sidebar: vertical scroll only, no horizontal scroll */
   #sidebar {
     width: 100%;
     flex: 1;
+    overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     border-radius: 0;
   }
   #sidebar::-webkit-scrollbar { display: none; }
 
-  /* Drawer handle hidden — not a drawer in landscape */
+  /* All children of sidebar must not exceed panel width */
+  #sidebar * {
+    max-width: 100%;
+  }
+
+  /* Drawer handle hidden */
   #drawer-handle { display: none !important; }
 
-  /* Viewport fills all remaining space to the right */
+  /* Viewport: exactly 50%, canvas fills it */
   #viewport {
     position: relative;
     flex: 1;
+    width: 50%;
     height: 100vh;
-    width: auto;
+    overflow: hidden;
     touch-action: none;
     -webkit-user-select: none;
     user-select: none;
-    /* Respect right notch safe area */
     padding-right: env(safe-area-inset-right, 0px);
   }
 
-  /* Slightly tighter chips in landscape */
   .qty-chip { padding: 7px 2px; }
 
-  /* Hint text repositioned so it clears the right safe area */
+  /* Fix hint — re-center within the viewport (which is now 50% wide) */
   .viewport-hint {
-    right: calc(12px + env(safe-area-inset-right, 0px));
-    left: auto;
-    transform: none;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    right: auto;
   }
 }

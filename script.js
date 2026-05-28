@@ -1534,23 +1534,37 @@ window.toggleDrawer = function() {
   targetViewOffsetY = col.classList.contains('drawer-open') ? 0.25 : 0;
 };
 
-// On mobile, adjust camera zoom to fill the frame well.
-// Portrait: zoom out for the bottom drawer layout.
-// Landscape phone: sidebar takes 260px, remaining viewport is wider — zoom in closer.
+// On mobile, adjust camera zoom to fill the frame.
+// Portrait: slight zoom out for drawer layout.
+// Landscape phone: 50/50 split — viewport is half screen width, zoom in tight.
 const isLandscapePhone = window.innerWidth <= 932 &&
   window.matchMedia('(orientation: landscape)').matches;
 const isPortraitMobile = window.innerWidth <= 768 &&
   window.matchMedia('(orientation: portrait)').matches;
 
 if (isLandscapePhone) {
-  // Side-by-side layout — model has a full tall viewport, zoom in tighter
-  targetSph.r  = 0.38;
-  currentSph.r = 0.38;
+  targetSph.r  = 0.28;
+  currentSph.r = 0.28;
 } else if (isPortraitMobile) {
-  // Bottom drawer layout — model shares screen, zoom out a touch
   targetSph.r  = 0.5;
   currentSph.r = 0.5;
 }
+
+// On orientation change, re-check zoom and force a renderer resize
+window.addEventListener('orientationchange', function() {
+  setTimeout(function() {
+    resize();
+    const nowLandscape = window.innerWidth <= 932 &&
+      window.matchMedia('(orientation: landscape)').matches;
+    if (nowLandscape) {
+      targetSph.r  = 0.28;
+      currentSph.r = 0.28;
+    } else if (window.innerWidth <= 768) {
+      targetSph.r  = 0.5;
+      currentSph.r = 0.5;
+    }
+  }, 300); // small delay lets the browser finish layout before measuring
+});
 
 // Touch controls — single finger rotate, two finger pinch zoom
 (function() {
