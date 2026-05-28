@@ -588,17 +588,16 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   font-weight: 700;
 }
 /* ─── MOBILE ─────────────────────────────────────────────────────────────────
-   The existing #left-column becomes a bottom drawer on mobile.
-   Applies to: portrait ≤768px  OR  landscape with short viewport (phones). */
+   PORTRAIT  ≤768px           → bottom drawer (slides up)
+   LANDSCAPE phone (hover:none, max-height:500px) → side-by-side panel  */
 
 #drawer-handle {
   display: none;
 }
 
-/* Shared mobile drawer styles — portrait phones and landscape phones */
-@media (max-width: 768px), (max-height: 500px) and (orientation: landscape) and (hover: none) {
+/* ── PORTRAIT: bottom drawer ─────────────────────────────────────────────── */
+@media (max-width: 768px) and (orientation: portrait) {
 
-  /* Canvas fills the full screen */
   #viewport {
     position: fixed;
     inset: 0;
@@ -610,31 +609,22 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     user-select: none;
   }
 
-  /* Hide desktop header — logo lives in the sidebar below */
-  header {
-    display: none;
-  }
+  header { display: none; }
 
-  /* Drawer: fixed to bottom, peeks 48px + safe-area, slides up on .drawer-open.
-     The peek translateY must include env(safe-area-inset-bottom) so the handle
-     always sits above the iOS home indicator / Siri shortcut bar in both
-     Safari and standalone (Add to Home Screen) mode. */
+  /* Drawer peeks 48px + safe-area above home indicator */
   #left-column {
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     width: 100%;
-    /* landscape gets a taller drawer since viewport is short */
-    height: 75vh;
+    height: 55vh;
     z-index: 100;
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
-    /* Peek = handle height (48px) + bottom safe area so handle clears system bar */
     transform: translateY(calc(100% - 48px - env(safe-area-inset-bottom, 0px)));
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
-    /* Pad the interior so content isn't under the system bar when open */
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
@@ -642,17 +632,15 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     transform: translateY(0);
   }
 
-  /* Sidebar scrolls inside the drawer */
   #sidebar {
     width: 100%;
-    height: calc(75vh - 48px);
+    height: calc(55vh - 48px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     border-radius: 0;
   }
   #sidebar::-webkit-scrollbar { display: none; }
 
-  /* Show the drag handle only on mobile */
   #drawer-handle {
     display: flex;
     align-items: center;
@@ -665,50 +653,10 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     flex-shrink: 0;
     border-bottom: 1px solid var(--border);
     transition: background-color 0.5s ease;
-    /* ensure handle is always tappable, not obscured by system bars */
     position: relative;
     z-index: 101;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-  }
-
-  .drawer-bar {
-    width: 36px;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--border);
-    transition: background 0.2s ease;
-  }
-
-  #drawer-handle:active .drawer-bar {
-    background: var(--muted);
-  }
-
-  /* Slightly larger tap targets for chips */
-  .qty-chip {
-    padding: 9px 2px;
-  }
-}
-
-/* Portrait-only: use 55vh drawer height (more room available) */
-@media (max-width: 768px) and (orientation: portrait) {
-  #left-column {
-    height: 55vh;
-    transform: translateY(calc(100% - 48px - env(safe-area-inset-bottom, 0px)));
-  }
-  #sidebar {
-    height: calc(55vh - 48px);
-  }
-}
-
-/* ─── DRAWER ARROW HINT ──────────────────────────────────────────────────── */
-#drawer-arrow {
-  display: none;
-}
-
-@media (max-width: 768px), (max-height: 500px) and (orientation: landscape) and (hover: none) {
-  #drawer-handle {
-    position: relative;
   }
 
   #drawer-arrow {
@@ -719,5 +667,83 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
 
   #left-column.drawer-open #drawer-arrow {
     transform: rotate(180deg);
+  }
+
+  .qty-chip { padding: 9px 2px; }
+}
+
+/* ── LANDSCAPE PHONE: side-by-side panel ─────────────────────────────────── */
+@media (max-height: 500px) and (orientation: landscape) and (hover: none) {
+
+  /* Body switches to row layout — sidebar left, canvas right */
+  body {
+    flex-direction: row;
+    overflow: hidden;
+  }
+
+  /* Sidebar panel: fixed width, full height, scrollable, left-safe-area inset */
+  #left-column {
+    position: relative;
+    width: 260px;
+    min-width: 260px;
+    height: 100vh;
+    flex-shrink: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+    border-radius: 0;
+    box-shadow: none;
+    transform: none !important;
+    transition: none;
+    /* Respect left notch / safe area on landscape */
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Header shows in landscape for branding */
+  header {
+    display: flex;
+    height: 56px;
+    flex-shrink: 0;
+  }
+
+  .header-logo img { height: 36px; }
+
+  /* Sidebar fills remaining height and scrolls */
+  #sidebar {
+    width: 100%;
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 0;
+  }
+  #sidebar::-webkit-scrollbar { display: none; }
+
+  /* Drawer handle hidden — not a drawer in landscape */
+  #drawer-handle { display: none !important; }
+
+  /* Viewport fills all remaining space to the right */
+  #viewport {
+    position: relative;
+    flex: 1;
+    height: 100vh;
+    width: auto;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    /* Respect right notch safe area */
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Slightly tighter chips in landscape */
+  .qty-chip { padding: 7px 2px; }
+
+  /* Hint text repositioned so it clears the right safe area */
+  .viewport-hint {
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    left: auto;
+    transform: none;
   }
 }

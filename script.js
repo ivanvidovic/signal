@@ -318,11 +318,29 @@ const vinylNormalMap = buildVinylNormalMap();
 let isDarkMode = false;
 const themeBtn = document.getElementById('themeBtn');
 
-window.toggleDarkMode = function() {
-  isDarkMode = !isDarkMode;
+function applyDarkMode(dark) {
+  isDarkMode = dark;
   document.body.classList.toggle('dark-mode', isDarkMode);
   themeBtn.textContent = isDarkMode ? '○ \u00a0Light Mode' : '☾ \u00a0Dark Mode';
-};
+  // Sync the browser/PWA status-bar color to match the panel background
+  const metaTheme = document.getElementById('meta-theme-color');
+  const metaStatus = document.getElementById('meta-status-bar');
+  if (metaTheme) metaTheme.setAttribute('content', isDarkMode ? '#1A1A1A' : '#EDE7DF');
+  if (metaStatus) metaStatus.setAttribute('content', isDarkMode ? 'black-translucent' : 'default');
+  try { localStorage.setItem('darkMode', isDarkMode ? '1' : '0'); } catch(e) {}
+}
+
+window.toggleDarkMode = function() { applyDarkMode(!isDarkMode); };
+
+// Auto-detect system preference on first visit, then respect saved preference
+(function() {
+  const saved = (() => { try { return localStorage.getItem('darkMode'); } catch(e) { return null; } })();
+  if (saved !== null) {
+    if (saved === '1') applyDarkMode(true);
+  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    applyDarkMode(true);
+  }
+})();
 
 // ─── LIGHTING CONFIG ─────────────────────────────────────────────────────────
 // All scene lighting in one place. Edit values here, then call
@@ -1506,18 +1524,30 @@ window.shareConfig = function() {
 };
 // ─── MOBILE ───────────────────────────────────────────────────────────────────
 
-// Drawer toggle
+// Drawer toggle — only active in portrait mobile (landscape uses side-by-side panel)
 window.toggleDrawer = function() {
+  const isLandscape = window.innerHeight <= 500 &&
+    window.matchMedia('(orientation: landscape) and (hover: none)').matches;
+  if (isLandscape) return;
   const col = document.getElementById('left-column');
   col.classList.toggle('drawer-open');
   targetViewOffsetY = col.classList.contains('drawer-open') ? 0.25 : 0;
 };
 
-// On mobile, back the camera out so the full model is visible on load
-// Matches CSS: portrait ≤768px OR landscape with short viewport (touch phones)
-const isMobileDevice = window.innerWidth <= 768 ||
-  (window.innerHeight <= 500 && window.matchMedia('(orientation: landscape) and (hover: none)').matches);
-if (isMobileDevice) {
+// On mobile, adjust camera zoom to fill the frame well.
+// Portrait: zoom out for the bottom drawer layout.
+// Landscape phone: sidebar takes 260px, remaining viewport is wider — zoom in closer.
+const isLandscapePhone = window.innerHeight <= 500 &&
+  window.matchMedia('(orientation: landscape) and (hover: none)').matches;
+const isPortraitMobile = window.innerWidth <= 768 &&
+  window.matchMedia('(orientation: portrait)').matches;
+
+if (isLandscapePhone) {
+  // Side-by-side layout — model has a full tall viewport, zoom in tighter
+  targetSph.r  = 0.38;
+  currentSph.r = 0.38;
+} else if (isPortraitMobile) {
+  // Bottom drawer layout — model shares screen, zoom out a touch
   targetSph.r  = 0.5;
   currentSph.r = 0.5;
 }
