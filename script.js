@@ -1535,6 +1535,53 @@ window.toggleDrawer = function() {
   targetViewOffsetY = col.classList.contains('drawer-open') ? 0.25 : 0;
 };
 
+// ── DRAWER HINT: first-visit peek + arrow bounce ──────────────────────────
+// Only runs on portrait mobile, only on first ever visit (localStorage flag).
+(function() {
+  const isPortrait = window.innerWidth <= 768 &&
+    window.matchMedia('(orientation: portrait)').matches;
+  if (!isPortrait) return;
+
+  let seen = false;
+  try { seen = localStorage.getItem('drawerHintSeen') === '1'; } catch(e) {}
+  if (seen) return;
+
+  const col   = document.getElementById('left-column');
+  const arrow = document.getElementById('drawer-arrow');
+
+  // Wait for page to settle, then peek
+  setTimeout(function() {
+    // Peek: slide drawer up to ~30% of its height
+    col.style.transition = 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    col.style.transform  = 'translateY(calc(70% - 48px - env(safe-area-inset-bottom, 0px)))';
+
+    // Trigger haptic if available
+    if (navigator.vibrate) navigator.vibrate(10);
+
+    // Hold for 1.5s then snap back
+    setTimeout(function() {
+      col.style.transition = 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+      col.style.transform  = '';  // let CSS take back over
+
+      // Once snapped back, restore CSS transition and start arrow bounce
+      setTimeout(function() {
+        col.style.transition = '';
+        col.style.transform  = '';
+        if (arrow) {
+          arrow.classList.add('arrow-bounce');
+          // Remove class after 3 cycles (3 × 0.6s = 1.8s) so it doesn't replay
+          arrow.addEventListener('animationend', function() {
+            arrow.classList.remove('arrow-bounce');
+          }, { once: true });
+        }
+        try { localStorage.setItem('drawerHintSeen', '1'); } catch(e) {}
+      }, 420);
+
+    }, 1500);
+
+  }, 1200); // delay after load so model has rendered and user is looking
+})();
+
 // On mobile, adjust camera zoom to fill the frame.
 // Portrait: slight zoom out for drawer layout.
 // Landscape phone: 50/50 split — viewport is half screen width, zoom in tight.
