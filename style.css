@@ -168,20 +168,119 @@ canvas { width:100%!important; height:100%!important; display:block; }
 }
 .hint-sep { opacity: 0.4; }
 
+/* ─── SIDEBAR SYSTEM ──────────────────────────────────────────────────────────
+   The viewport always fills 100% of the screen. The sidebar overlays on top
+   from the left — exactly like the portrait drawer but sliding horizontally.
+   No layout shifts. No canvas resize during animation. No stretch. Ever.      */
+
 #left-column {
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 288px;
   height: 100vh;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  z-index: 10;
-  transition: border-color 0.5s ease;
+  z-index: 30;
+  transform: translateX(0);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.5s ease;
+  overflow: visible;
+}
+
+#left-column.sidebar-hidden {
+  transform: translateX(-100%);
+}
+
+/* Viewport always fills full screen — never resizes */
+#viewport {
+  position: fixed;
+  inset: 0;
+  cursor: grab;
+  overflow: hidden;
+}
+
+#viewport:active { cursor: grabbing; }
+
+/* ── Sidebar pull tab ────────────────────────────────────────────────────── */
+#sidebar-tab {
+  position: fixed;
+  top: 0;
+  left: 288px; /* flush with right edge of sidebar */
+  width: 20px;
+  height: 100px; /* matches desktop header height */
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  box-shadow: none;
+  transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.5s ease,
+              border-color 0.5s ease,
+              box-shadow 0.35s ease;
+  padding: 0;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* When hidden, tab slides to left edge */
+body.sidebar-hidden #sidebar-tab {
+  left: 0;
+  box-shadow: 2px 0 8px var(--shadow);
+}
+
+body.sidebar-hidden #sidebar-tab:hover {
+  box-shadow: 3px 0 12px var(--shadow);
+}
+
+#sidebar-tab-arrow {
+  color: var(--border);
+  transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.5s ease;
+  display: block;
+  flex-shrink: 0;
+  /* Default: sidebar open, arrow points left (‹) — indicates close action */
+  transform: rotate(180deg);
+}
+
+/* Sidebar hidden: arrow points right (›) — indicates open action */
+body.sidebar-hidden #sidebar-tab-arrow {
+  transform: rotate(0deg);
+}
+
+/* Tab bounce on first close — nudges right */
+#sidebar-tab-arrow.tab-bounce {
+  animation: tabBounce 0.55s ease-in-out 3;
+}
+
+@keyframes tabBounce {
+  0%   { transform: rotate(0deg) translateX(0); }
+  35%  { transform: rotate(0deg) translateX(4px); }
+  65%  { transform: rotate(0deg) translateX(4px); }
+  100% { transform: rotate(0deg) translateX(0); }
+}
+
+body:not(.sidebar-hidden) #sidebar-tab-arrow.tab-bounce {
+  animation: none;
+}
+
+/* Hide on portrait mobile — drawer system handles that context */
+@media (max-width: 768px) and (orientation: portrait) {
+  #sidebar-tab { display: none; }
 }
 
 #sidebar {
   width: 288px;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
   overflow-y: auto;
   flex: 1;
   flex-shrink: 0;
@@ -214,6 +313,8 @@ canvas { width:100%!important; height:100%!important; display:block; }
   flex: 1;
   height: 1px;
   background: var(--border);
+  transition: background-color 0.5s ease;
+}
   transition: background-color 0.5s ease;
 }
 
@@ -324,7 +425,7 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   display: flex;
   align-items: center;
   gap: 7px;
-  transition: all 0.2s ease;
+  transition: background-color 0.5s ease, border-color 0.5s ease, color 0.5s ease;
   color: var(--ink);
 }
 .preset-btn:hover { background:var(--btn-hover); border-color:var(--muted); }
@@ -360,7 +461,7 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   letter-spacing: 0.15em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.5s ease, color 0.5s ease, background-color 0.5s ease;
 }
 .reset-btn:hover { border-color:var(--muted); color:var(--ink); background:var(--bg); }
 /* ─── QUANTITY CHIPS & FLIP TOGGLE ─────────────────────────────────────────── */
@@ -403,7 +504,7 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.5s ease, border-color 0.5s ease, color 0.5s ease;
   text-align: center;
 }
 
@@ -432,7 +533,7 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   border: 1px solid var(--border);
   border-radius: 5px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.5s ease, border-color 0.5s ease;
   position: relative;
   overflow: hidden;
 }
@@ -516,10 +617,8 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
   color: var(--muted);
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 0.15s ease;
+  transition: background-color 0.5s ease, border-color 0.5s ease, color 0.5s ease;
 }
-
-.label-upload-btn:hover,
 .label-clear-btn:hover {
   border-color: var(--muted);
   color: var(--ink);
@@ -599,22 +698,12 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
 }
 @media (max-width: 768px) and (orientation: portrait) {
 
-  #viewport {
-    position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 0;
-    touch-action: none;
-    -webkit-user-select: none;
-    user-select: none;
-  }
-
   header { display: none; }
 
-  /* Drawer peeks 48px + safe-area above home indicator */
+  /* Portrait drawer overrides the base fixed left-column */
   #left-column {
     position: fixed;
+    top: auto;
     bottom: 0;
     left: 0;
     right: 0;
@@ -693,33 +782,34 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
    Excludes iPads (1024px+). */
 @media (orientation: landscape) and (max-width: 932px) {
 
-  body {
-    flex-direction: row;
-    overflow: hidden;
-  }
-
-  /* Left panel: exactly 50% width, no horizontal overflow */
+  /* Sidebar: fixed overlay, 40% width */
   #left-column {
-    position: relative;
-    width: 50%;
-    min-width: 0;
-    max-width: 50%;
-    height: 100vh;
-    flex-shrink: 0;
-    z-index: 10;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    width: 40vw;
     border-right: 1px solid var(--border);
     border-radius: 0;
     box-shadow: none;
-    transform: none !important;
-    transition: none;
+    overflow: hidden;
     padding-left: env(safe-area-inset-left, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    /* transition inherited from base rule */
   }
 
-  /* Header: compact, padded for status bar overlap (black-translucent) */
+  /* Tab at 40vw when open, 0 when hidden */
+  #sidebar-tab {
+    left: 40vw;
+    /* Matches compact header height exactly — looks like one piece */
+    height: calc(48px + env(safe-area-inset-top, 0px));
+    /* No top/bottom border — flush with header edges */
+    border-top: none;
+    border-bottom: none;
+    border-radius: 0 6px 6px 0;
+  }
+
+  body.sidebar-hidden #sidebar-tab {
+    left: 0;
+  }
+
+  /* Header: compact */
   header {
     display: flex;
     height: calc(48px + env(safe-area-inset-top, 0px));
@@ -731,7 +821,7 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
 
   .header-logo img { height: 24px; }
 
-  /* Sidebar: vertical scroll only, no horizontal scroll */
+  /* Sidebar scrolls vertically only */
   #sidebar {
     width: 100%;
     flex: 1;
@@ -740,31 +830,13 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
     border-radius: 0;
-    /* Extra padding so last button clears the home indicator */
     padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
   #sidebar::-webkit-scrollbar { display: none; }
 
-  /* All children of sidebar must not exceed panel width */
-  #sidebar * {
-    max-width: 100%;
-  }
+  #sidebar * { max-width: 100%; }
 
-  /* Drawer handle hidden */
   #drawer-handle { display: none !important; }
-
-  /* Viewport: exactly 50%, canvas fills it */
-  #viewport {
-    position: relative;
-    flex: 1;
-    width: 50%;
-    height: 100vh;
-    overflow: hidden;
-    touch-action: none;
-    -webkit-user-select: none;
-    user-select: none;
-    padding-right: env(safe-area-inset-right, 0px);
-  }
 
   .qty-chip { padding: 7px 2px; }
 }

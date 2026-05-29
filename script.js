@@ -487,8 +487,40 @@ let currentSph = { t: -0.5, p: 1.05, r: 0.22 };
 let targetTgt  = new THREE.Vector3(0, 0.01, 0);
 let currentTgt = new THREE.Vector3(0, 0.01, 0);
 let autoRot = true, rotTimer = null;
-let targetViewOffsetY  = 0;
-let currentViewOffsetY = 0;
+
+// View offset targets — lerped each frame for smooth transitions
+let targetOffsetX  = 0, currentOffsetX = 0;
+let targetOffsetY  = 0, currentOffsetY = 0;
+
+// Sets target offset values. Render loop lerps toward them and calls setViewOffset.
+function applyViewOffset(snap) {
+  const col = document.getElementById('left-column');
+  if (!col) { targetOffsetX = 0; targetOffsetY = 0; return; }
+
+  const w = renderer.domElement.width;
+  const h = renderer.domElement.height;
+  const isPortrait = window.innerWidth <= 768 &&
+    window.matchMedia('(orientation: portrait)').matches;
+
+  if (isPortrait) {
+    const drawerOpen = col.classList.contains('drawer-open');
+    targetOffsetX = 0;
+    targetOffsetY = drawerOpen ? Math.round(h * 0.55 * 0.5) : 0;
+  } else {
+    const sidebarHidden = col.classList.contains('sidebar-hidden');
+    const sidebarW = window.innerWidth <= 932
+      ? Math.round(w * 0.4)
+      : Math.round((288 / window.innerWidth) * w);
+    targetOffsetX = sidebarHidden ? 0 : -Math.round(sidebarW * 0.5);
+    targetOffsetY = 0;
+  }
+
+  // Snap immediately when called during orientation change or init — no lerp
+  if (snap) {
+    currentOffsetX = targetOffsetX;
+    currentOffsetY = targetOffsetY;
+  }
+}
 
 function updateCam() {
   const { t, p, r } = currentSph;
@@ -1305,6 +1337,8 @@ function resize() {
   renderer.setSize(w, h);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  // Recalculate target only — don't snap current, lerp finishes naturally
+  applyViewOffset(false);
 }
 window.addEventListener('resize', resize);
 resize();
@@ -1322,21 +1356,22 @@ resize();
   currentSph.p += (targetSph.p - currentSph.p) * 0.08;
   currentSph.r += (targetSph.r - currentSph.r) * 0.08;
   currentTgt.lerp(targetTgt, 0.08);
-  currentViewOffsetY += (targetViewOffsetY - currentViewOffsetY) * 0.08;
-  const w = wrap.clientWidth;
-  const h = wrap.clientHeight;
-  const dpr = window.devicePixelRatio || 1;
-  if (currentViewOffsetY > 0.001) {
-    camera.setViewOffset(
-      w * dpr, h * dpr,
-      0, Math.round(currentViewOffsetY * h * dpr),
-      w * dpr, h * dpr
-    );
-  } else {
+  currentOffsetX += (targetOffsetX - currentOffsetX) * 0.08;
+  currentOffsetY += (targetOffsetY - currentOffsetY) * 0.08;
+  const _w = renderer.domElement.width;
+  const _h = renderer.domElement.height;
+  if (Math.abs(currentOffsetX) > 0.05 || Math.abs(currentOffsetY) > 0.05) {
+    camera.setViewOffset(_w, _h, currentOffsetX, currentOffsetY, _w, _h);
+  } else if (targetOffsetX === 0 && targetOffsetY === 0) {
+    // Only clear when we're actually targeting zero — never during an active transition
     camera.clearViewOffset();
+    currentOffsetX = 0;
+    currentOffsetY = 0;
+  } else {
+    camera.setViewOffset(_w, _h, currentOffsetX, currentOffsetY, _w, _h);
   }
   updateCam();
-  scene.background.lerp(isDarkMode ? bgDarkColor : bgLightColor, 0.05);
+  scene.background.lerp(isDarkMode ? bgDarkColor : bgLightColor, 0.1);
   shadowPlane.material.opacity = THREE.MathUtils.lerp(
     shadowPlane.material.opacity, LIGHTING_CONFIG.shadow.opacity, 0.1);
   renderer.render(scene, camera);
@@ -1532,8 +1567,75 @@ window.toggleDrawer = function() {
   if (isLandscape) return;
   const col = document.getElementById('left-column');
   col.classList.toggle('drawer-open');
-  targetViewOffsetY = col.classList.contains('drawer-open') ? 0.25 : 0;
+  const open = col.classList.contains('drawer-open');
+  applyViewOffset();
+  try { localStorage.setItem('drawerOpen', open ? '1' : '0'); } catch(e) {}
 };
+
+// ── SIDEBAR TOGGLE (desktop + landscape mobile) ───────────────────────────
+function isSidebarContext() {
+  // Sidebar toggle applies on desktop and landscape mobile, not portrait mobile
+  const isPortrait = window.innerWidth <= 768 &&
+    window.matchMedia('(orientation: portrait)').matches;
+  return !isPortrait;
+}
+
+function applySidebarState(open, animate) {
+  const col = document.getElementById('left-column');
+
+  if (!animate) {
+    col.style.transition = 'none';
+    requestAnimationFrame(function() { col.style.transition = ''; });
+  }
+
+  if (open) {
+    col.classList.remove('sidebar-hidden');
+    document.body.classList.remove('sidebar-hidden');
+  } else {
+    col.classList.add('sidebar-hidden');
+    document.body.classList.add('sidebar-hidden');
+  }
+
+  applyViewOffset();
+  setTimeout(resize, animate ? 380 : 0);
+  try { localStorage.setItem('sidebarOpen', open ? '1' : '0'); } catch(e) {}
+}
+
+window.toggleSidebar = function() {
+  if (!isSidebarContext()) return;
+  const col = document.getElementById('left-column');
+  const willOpen = col.classList.contains('sidebar-hidden');
+  applySidebarState(willOpen, true);
+
+  // First-close hint: bounce the tab arrow once to show it's interactive
+  if (!willOpen) {
+    let hintSeen = false;
+    try { hintSeen = localStorage.getItem('sidebarTabHintSeen') === '1'; } catch(e) {}
+    if (!hintSeen) {
+      const arrow = document.getElementById('sidebar-tab-arrow');
+      if (arrow) {
+        // Small delay so the sidebar has slid away before bounce plays
+        setTimeout(function() {
+          arrow.classList.add('tab-bounce');
+          arrow.addEventListener('animationend', function() {
+            arrow.classList.remove('tab-bounce');
+          }, { once: true });
+        }, 420);
+      }
+      try { localStorage.setItem('sidebarTabHintSeen', '1'); } catch(e) {}
+    }
+  }
+};
+
+// Init sidebar state from localStorage on load
+(function() {
+  if (!isSidebarContext()) return;
+  let saved = null;
+  try { saved = localStorage.getItem('sidebarOpen'); } catch(e) {}
+  const open = saved === null ? true : saved === '1';
+  applySidebarState(open, false);
+  applyViewOffset(true);
+})();
 
 // ── DRAWER HINT: first-visit peek + arrow bounce ──────────────────────────
 // Only runs on portrait mobile, only on first ever visit (localStorage flag).
@@ -1598,28 +1700,56 @@ if (isLandscapePhone) {
   currentSph.r = 0.5;
 }
 
-// On orientation change, reset camera offset (drawer offset doesn't apply in landscape),
-// close the drawer if open, then re-zoom and resize.
 window.addEventListener('orientationchange', function() {
-  // Reset view offset immediately so model doesn't sit high
-  targetViewOffsetY  = 0;
-  currentViewOffsetY = 0;
-  // Close drawer in case it was open in portrait
   const col = document.getElementById('left-column');
-  col.classList.remove('drawer-open');
+
+  // Kill transitions immediately — no animation during layout switch
+  col.style.transition = 'none';
+
+  // Read saved states
+  let sidebarOpen = true;
+  try { const s = localStorage.getItem('sidebarOpen'); if (s !== null) sidebarOpen = s === '1'; } catch(e) {}
+  let drawerOpen = false;
+  try { drawerOpen = localStorage.getItem('drawerOpen') === '1'; } catch(e) {}
 
   setTimeout(function() {
-    resize();
     const nowLandscape = window.innerWidth <= 932 &&
       window.matchMedia('(orientation: landscape)').matches;
+
     if (nowLandscape) {
+      // Clear portrait drawer, apply saved sidebar state
+      col.classList.remove('drawer-open');
+      if (sidebarOpen) {
+        col.classList.remove('sidebar-hidden');
+        document.body.classList.remove('sidebar-hidden');
+      } else {
+        col.classList.add('sidebar-hidden');
+        document.body.classList.add('sidebar-hidden');
+      }
       targetSph.r  = 0.28;
       currentSph.r = 0.28;
-    } else if (window.innerWidth <= 768) {
+    } else {
+      // Portrait — clear sidebar classes, restore saved drawer state
+      col.classList.remove('sidebar-hidden');
+      document.body.classList.remove('sidebar-hidden');
+      if (drawerOpen) {
+        col.classList.add('drawer-open');
+      } else {
+        col.classList.remove('drawer-open');
+      }
       targetSph.r  = 0.5;
       currentSph.r = 0.5;
     }
-  }, 300);
+
+    // Update camera framing for new layout, snap immediately — no lerp during switch
+    applyViewOffset(true);
+    resize();
+
+    // Re-enable transitions after layout is settled
+    requestAnimationFrame(function() {
+      col.style.transition = '';
+    });
+  }, 100);
 });
 
 // Touch controls — single finger rotate, two finger pinch zoom
