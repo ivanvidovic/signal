@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <!-- theme-color: system auto-switches light/dark. JS overwrites content on manual toggle. -->
   <meta name="theme-color" content="#EDE7DF" media="(prefers-color-scheme: light)" id="meta-theme-light">
   <meta name="theme-color" content="#1A1A1A" media="(prefers-color-scheme: dark)"  id="meta-theme-dark">
@@ -11,6 +11,20 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <!-- black-translucent lets status bar overlay the app and respects theme-color tinting -->
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script>
+    // Set theme-color before first paint so browser chrome matches saved preference
+    (function() {
+      try {
+        const saved = localStorage.getItem('darkMode');
+        const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const dark = saved !== null ? saved === '1' : sysDark;
+        const color = dark ? '#1A1A1A' : '#EDE7DF';
+        document.getElementById('meta-theme-color').setAttribute('content', color);
+        document.getElementById('meta-theme-light').setAttribute('content', color);
+        document.getElementById('meta-theme-dark').setAttribute('content', color);
+      } catch(e) {}
+    })();
+  </script>
   <title>Signal Broadcasting Co.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">

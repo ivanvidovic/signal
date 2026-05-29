@@ -639,6 +639,7 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     border-radius: 0;
+    touch-action: pan-y;
   }
   #sidebar::-webkit-scrollbar { display: none; }
 
@@ -718,15 +719,17 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* Header: compact */
+  /* Header: compact, padded for status bar overlap (black-translucent) */
   header {
     display: flex;
-    height: 48px;
+    height: calc(48px + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
     flex-shrink: 0;
-    padding: 0 14px;
+    padding-left: 14px;
+    padding-right: 14px;
   }
 
-  .header-logo img { height: 28px; }
+  .header-logo img { height: 24px; }
 
   /* Sidebar: vertical scroll only, no horizontal scroll */
   #sidebar {
@@ -735,7 +738,10 @@ body.dark-mode input[type=range]::-webkit-slider-thumb {
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     border-radius: 0;
+    /* Extra padding so last button clears the home indicator */
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
   #sidebar::-webkit-scrollbar { display: none; }
 
