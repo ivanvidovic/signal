@@ -505,7 +505,7 @@ function applyViewOffset(snap) {
   if (isPortrait) {
     const drawerOpen = col.classList.contains('drawer-open');
     targetOffsetX = 0;
-    targetOffsetY = drawerOpen ? Math.round(h * 0.55 * 0.5) : 0;
+    targetOffsetY = drawerOpen ? Math.round(h * 0.4 * 0.5) : 0;
   } else {
     const sidebarHidden = col.classList.contains('sidebar-hidden');
     const sidebarW = window.innerWidth <= 932
